@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Thiệp cưới Huy & Nhi
 
-## Getting Started
+Website thiệp cưới responsive bằng Next.js App Router. Trang chính là phiên bản giới thiệu chung; mỗi khách nhận một link riêng dạng `/moi/<code>` để xem lời mời và gửi RSVP.
 
-First, run the development server:
+## Chạy local nhanh
+
+Yêu cầu Node.js LTS.
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Mở:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `http://localhost:3000/` — thiệp chung, không có RSVP.
+- `http://localhost:3000/moi/demo` — link demo local, khách “Khách mời thân yêu”, tối đa 2 người.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Link `demo` chỉ là dữ liệu giả trong bộ nhớ khi chạy development; RSVP sẽ mất khi restart server và không ghi Google Sheets. Đổi tên, ngày cưới, deadline, địa điểm và timeline tại [`src/config/wedding.ts`](src/config/wedding.ts).
 
-## Learn More
+## Google Sheets
 
-To learn more about Next.js, take a look at the following resources:
+Khi chạy production, tạo `.env.local` (local) hoặc `.env` (VPS) từ [`.env.example`](.env.example):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+GOOGLE_SHEET_ID=your-google-sheet-id
+GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"..."}
+PUBLIC_SITE_URL=https://your-domain.com
+PORT=3000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Spreadsheet cần hai tab với header:
 
-## Deploy on Vercel
+- `Invitations`: `code,name,maxGuests,active`
+- `RSVPs`: `code,name,attendance,guestCount,message,createdAt,updatedAt`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Nạp danh sách khách từ CSV bằng:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+node scripts/seed-invitations.mjs data/guests.example.csv
+```
+
+## Kiểm tra và build
+
+```bash
+npm test
+npm run lint
+npm run build
+npm run start
+```
+
+## Triển khai Oracle VPS
+
+Dùng Node.js + PM2 + Nginx, không cần Vercel. Xem [DEPLOYMENT.md](DEPLOYMENT.md) để cài đặt HTTPS, reverse proxy, PM2 reload và rollback.

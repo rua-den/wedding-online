@@ -1,10 +1,10 @@
 import { getInvitation } from "@/lib/invitation-service";
-import { googleSheetsStore } from "@/lib/sheets";
+import { getInvitationStore } from "@/lib/runtime-store";
 
 export async function GET(_: Request, { params }: { params: Promise<{ code: string }> }) {
   try {
     const { code } = await params;
-    const result = await getInvitation(code, googleSheetsStore);
+    const result = await getInvitation(code, getInvitationStore(code));
 
     if (!result.ok) {
       return Response.json({ message: result.message }, { status: result.status });

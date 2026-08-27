@@ -3,7 +3,7 @@ import { z } from "zod";
 import { wedding } from "@/config/wedding";
 import { submitRsvp } from "@/lib/invitation-service";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { googleSheetsStore } from "@/lib/sheets";
+import { getInvitationStore } from "@/lib/runtime-store";
 
 const rsvpSchema = z.object({
   attendance: z.enum(["attending", "declined"]),
@@ -31,7 +31,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ code
 
   const { code } = await params;
   const result = await submitRsvp(code, parsed.data, {
-    store: googleSheetsStore,
+    store: getInvitationStore(code),
     deadline: new Date(wedding.event.rsvpDeadline),
     now: new Date(),
   });
