@@ -13,4 +13,12 @@ describe("createRateLimiter", () => {
     expect(limiter.allow("203.0.113.10", 0)).toBe(false);
     expect(limiter.allow("203.0.113.10", 600_001)).toBe(true);
   });
+
+  it("drops expired keys when a later request is processed", () => {
+    const limiter = createRateLimiter({ maxRequests: 1, windowMs: 1_000 });
+
+    expect(limiter.allow("203.0.113.10", 0)).toBe(true);
+    expect(limiter.allow("203.0.113.11", 1_001)).toBe(true);
+    expect(limiter.trackedKeyCount()).toBe(1);
+  });
 });

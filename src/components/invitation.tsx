@@ -1,15 +1,17 @@
 import { wedding } from "@/config/wedding";
+import { formatWeddingHeroDate } from "@/lib/wedding-date";
 import { Countdown } from "./countdown";
 import { FloralMark } from "./floral-mark";
 
 export function Invitation() {
   const { couple, cover, event, story } = wedding;
+  const heroDate = formatWeddingHeroDate(event.dateTime);
   return <main>
     <section className="hero section-shell" aria-labelledby="invitation-title"><div className="hero-frame">
       <div className="hero-ornament hero-ornament-left" aria-hidden="true" /><div className="hero-ornament hero-ornament-right" aria-hidden="true" />
       <p className="eyebrow">{cover.eyebrow}</p><FloralMark />
       <h1 id="invitation-title"><span>{couple.shortGroomName}</span><em>&amp;</em><span>{couple.shortBrideName}</span></h1>
-      <p className="hero-message">{cover.message}</p><div className="hero-date"><span>19</span><div><b>THÁNG 12</b><small>2027</small></div></div>
+      <p className="hero-message">{cover.message}</p><div className="hero-date"><span>{heroDate.day}</span><div><b>{heroDate.month}</b><small>{heroDate.year}</small></div></div>
       <a className="scroll-cue" href="#ngay-chung-doi">Khám phá thiệp mời <span aria-hidden="true">↓</span></a>
     </div></section>
 

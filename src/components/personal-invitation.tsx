@@ -8,6 +8,7 @@ import { Invitation } from "./invitation";
 import { RsvpForm } from "./rsvp-form";
 
 type InvitationData = { guestName: string; maxGuests: number };
+const invitationLoadError = "Không thể tải thiệp mời. Vui lòng thử lại sau.";
 
 export function PersonalInvitation({ code }: { code: string }) {
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
@@ -16,8 +17,9 @@ export function PersonalInvitation({ code }: { code: string }) {
   useEffect(() => {
     fetch(`/api/invitations/${code}`, { cache: "no-store" })
       .then(async (response) => {
-        const body = (await response.json()) as InvitationData & { message?: string };
-        if (!response.ok) throw new Error(body.message ?? "Không tìm thấy thiệp mời này.");
+        const body = await response.json().catch(() => null) as (InvitationData & { message?: string }) | null;
+        if (!response.ok) throw new Error(body?.message ?? invitationLoadError);
+        if (!body) throw new Error(invitationLoadError);
         setInvitation(body);
       })
       .catch((reason: Error) => setError(reason.message));

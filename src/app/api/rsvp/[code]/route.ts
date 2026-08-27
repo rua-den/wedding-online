@@ -14,7 +14,7 @@ const rsvpSchema = z.object({
 const limiter = createRateLimiter({ maxRequests: 10, windowMs: 600_000 });
 
 function getClientIp(request: Request) {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ code: string }> }) {

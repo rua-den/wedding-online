@@ -16,24 +16,40 @@ if (!inputPath || !siteUrl || !spreadsheetId || !serviceAccountJson) {
 
 const csv = await readFile(inputPath, "utf8");
 const guests = csv
-  .trim()
   .split(/\r?\n/)
   .slice(1)
-  .filter(Boolean)
-  .map((line) => {
+  .filter((line) => line.trim())
+  .map((line, index) => {
     const [name, maxGuests] = line.split(",").map((value) => value.trim());
-    return { name, maxGuests: Number(maxGuests) };
+    return { name, maxGuests: Number(maxGuests), rowNumber: index + 2 };
   });
+
+for (const guest of guests) {
+  if (!guest.name) {
+    console.error(`Dòng ${guest.rowNumber}: Tên khách mời không được để trống.`);
+    process.exit(1);
+  }
+
+  if (!Number.isInteger(guest.maxGuests) || guest.maxGuests <= 0) {
+    console.error(`Dòng ${guest.rowNumber}: Số khách phải là số nguyên dương.`);
+    process.exit(1);
+  }
+}
 
 const credentials = JSON.parse(serviceAccountJson);
 const auth = new google.auth.GoogleAuth({ credentials, scopes: ["https://www.googleapis.com/auth/spreadsheets"] });
 const sheets = google.sheets({ version: "v4", auth });
 const rows = guests.map(({ name, maxGuests }) => [randomBytes(32).toString("base64url"), name, maxGuests, true]);
 
+await sheets.spreadsheets.values.clear({
+  spreadsheetId,
+  range: "Invitations!A2:D",
+});
+
 await sheets.spreadsheets.values.update({
   spreadsheetId,
   range: `Invitations!A2:D${rows.length + 1}`,
-  valueInputOption: "USER_ENTERED",
+  valueInputOption: "RAW",
   requestBody: { values: rows },
 });
 
