@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/sheets", () => ({
-  googleSheetsStore: { findInvitation: vi.fn(), upsertRsvp: vi.fn() },
+vi.mock("@/lib/sqlite-store", () => ({
+  sqliteInvitationStore: { findInvitation: vi.fn(), upsertRsvp: vi.fn() },
 }));
 
 import { PUT } from "./route";

@@ -1,10 +1,10 @@
 import { getInvitation } from "@/lib/invitation-service";
-import { getInvitationStore } from "@/lib/runtime-store";
+import { sqliteInvitationStore } from "@/lib/sqlite-store";
 
 export async function GET(_: Request, { params }: { params: Promise<{ code: string }> }) {
   try {
     const { code } = await params;
-    const result = await getInvitation(code, getInvitationStore(code));
+    const result = await getInvitation(code, sqliteInvitationStore);
 
     if (!result.ok) {
       return Response.json({ message: result.message }, { status: result.status });

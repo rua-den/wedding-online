@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/sheets", () => ({
-  googleSheetsStore: {
-    findInvitation: vi.fn().mockRejectedValue(new Error("Google Sheets unavailable")),
+vi.mock("@/lib/sqlite-store", () => ({
+  sqliteInvitationStore: {
+    findInvitation: vi.fn().mockRejectedValue(new Error("SQLite unavailable")),
     upsertRsvp: vi.fn(),
   },
 }));

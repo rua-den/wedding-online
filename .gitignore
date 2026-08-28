@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/test-results/
 
 # next.js
 /.next/
@@ -19,6 +20,9 @@
 
 # production
 /build
+/data/*.sqlite
+/data/*.sqlite-*
+/data/backups/
 
 # misc
 .DS_Store
