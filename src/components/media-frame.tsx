@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, type CSSProperties, type ReactNode } from "react";
 
 import type { PublicMediaAsset } from "@/lib/media-store";
@@ -58,15 +59,16 @@ export function MediaFrame({ asset, className, imageClassName, alt, loading, fal
 
   return (
     <div className={frameClassName} style={{ overflow: "hidden" }}>
-      {loadError ? fallback ?? defaultFallback(asset, imageAlt || "Ảnh") : <img
+      {loadError ? fallback ?? defaultFallback(asset, imageAlt || "Ảnh") : <Image
           className={imageClass}
           src={asset.src}
           alt={imageAlt}
+          fill
+          unoptimized
+          sizes="100vw"
           loading={loading}
           onError={() => setFailedSrc(asset.src)}
           style={{
-            height: "100%",
-            width: "100%",
             objectFit: "cover",
             ...mediaFrameStyle(asset),
           }}
