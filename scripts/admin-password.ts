@@ -6,5 +6,6 @@ if (!password || password.length < 10) {
   process.exit(1);
 }
 
-console.log(`ADMIN_PASSWORD_HASH=${await hashPassword(password)}`);
-
+const hash = await hashPassword(password);
+const envSafeHash = hash.replaceAll("$", "\\$");
+console.log(`ADMIN_PASSWORD_HASH=${envSafeHash}`);
