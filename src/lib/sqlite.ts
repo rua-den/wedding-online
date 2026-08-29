@@ -86,6 +86,12 @@ const schema = `
     maps_url TEXT,
     updated_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS appearance_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    theme_id TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
 `;
 
 function migrateMediaAssetCropColumns(connection: SqliteDatabase): void {
