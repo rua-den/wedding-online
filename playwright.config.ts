@@ -16,6 +16,7 @@ process.env.E2E_TEMP_ROOT = e2eTempRoot;
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: "test-results",
   globalTeardown: "./e2e/global-teardown.mjs",
   timeout: 45_000,
   expect: { timeout: 10_000 },
