@@ -1,10 +1,32 @@
-# Thiệp cưới Huy & Nhi
+# Huy & Nhi Wedding Invitation
 
-Website thiệp cưới responsive bằng Next.js App Router. Trang chính là phiên bản giới thiệu chung; mỗi khách nhận một link riêng dạng `/moi/<code>` để xem lời mời và gửi RSVP. Dữ liệu thiệp mời và RSVP được lưu trong SQLite; trang `/admin` dùng để quản lý link và theo dõi phản hồi.
+[![CI](https://github.com/rua-den/wedding-online/actions/workflows/ci.yml/badge.svg)](https://github.com/rua-den/wedding-online/actions/workflows/ci.yml)
 
-## Chạy local nhanh
+**English** · [Tiếng Việt](README.vi.md)
 
-Yêu cầu Node.js LTS (22.5+). Bản local có thể dùng `node:sqlite` tích hợp khi native package chưa được cài; production vẫn ưu tiên `better-sqlite3` từ `npm ci`.
+A responsive wedding invitation built with Next.js App Router. The public home page is the general invitation, while each guest receives a private `/moi/<code>` link with personalized copy and RSVP. Invitations, RSVP responses, editable content, appearance settings, and media metadata are stored in SQLite.
+
+## Features
+
+- General wedding invitation at `/`.
+- Personalized guest links at `/moi/<code>` with RSVP.
+- Password-protected admin dashboard at `/admin`.
+- Invitation management: create, edit, enable/disable, permanently delete, search, and filter links.
+- RSVP dashboard with attendance filters and CSV export.
+- Section-based invitation content editor at `/admin/edit`.
+- Global invitation theme picker at `/admin/appearance` with five curated presets and mobile/desktop preview.
+- Media manager for hero, bride/groom portraits, story, venue, and gallery images.
+- Non-destructive image focus/zoom metadata stored in SQLite.
+- SQLite backup and CSV guest seeding scripts.
+- VPS deployment with Node.js, PM2, and Nginx.
+
+## Requirements
+
+- Node.js 22.5 or newer.
+- npm.
+- `better-sqlite3` is used in production. The code can fall back to Node's built-in `node:sqlite` in supported environments when the native package is unavailable.
+
+## Quick start
 
 ```bash
 npm ci
@@ -13,44 +35,68 @@ npm run db:init
 npm run dev
 ```
 
-Mở:
+Open:
 
-- `http://localhost:3000/` — thiệp chung, không có RSVP.
-- `http://localhost:3000/moi/demo` — link demo development, khách “Khách mời thân yêu”, tối đa 2 người.
-- `http://localhost:3000/admin` — dashboard quản trị.
+- `http://localhost:3000/` — general invitation.
+- `http://localhost:3000/moi/demo` — development demo guest link.
+- `http://localhost:3000/admin` — admin dashboard.
 
-Trong dashboard, mục **Ảnh trên thiệp** cho phép tải ảnh cover, chân dung cô dâu/chú rể, ảnh chuyện tình, ảnh địa điểm/bản đồ và gallery. Ảnh gallery có thể kéo-thả để sắp xếp; ảnh gốc được lưu ở `public/uploads/` (hoặc thư mục `MEDIA_UPLOAD_DIRECTORY`), còn metadata và căn khung (`focusX`, `focusY`, `zoom`) được lưu ở SQLite. URL `/uploads/<tên-file>` được Next Route Handler đọc theo từng request, nên ảnh mới dùng được ngay sau khi upload khi chạy `next start`, kể cả khi thư mục nằm ngoài `public/`; Nginx chỉ cần proxy đường dẫn này về Next. Căn khung là không phá hủy: file gốc không bị ghi đè và admin/public dùng cùng một vị trí trọng tâm. Link mời có nút sao chép và xem trước, trong đó trang xem trước hiển thị tên khách được mời.
+The `demo` invitation is seeded only in development when it does not already exist.
 
-Nút **Xem trước toàn bộ thiệp** mở đúng trang `/` trong iframe; chế độ mobile được chọn mặc định và có thể chuyển sang desktop. Sau khi lưu căn khung thành công, bản xem trước được làm mới để kiểm tra ngay vị trí ảnh mới.
+## Environment variables
 
-Link `demo` được thêm vào SQLite nếu chưa có và chỉ khi chạy development. Đổi tên, ngày cưới, deadline, địa điểm và timeline tại [`src/config/wedding.ts`](src/config/wedding.ts).
-
-## SQLite và tài khoản admin
-
-Tạo `.env.local` (local) hoặc `.env` (VPS) từ [`.env.example`](.env.example):
+Create `.env.local` for local development or `.env` on the VPS from [`.env.example`](.env.example):
 
 ```env
 SQLITE_PATH=data/wedding.sqlite
 SQLITE_BACKUP_DIRECTORY=data/backups
 MEDIA_UPLOAD_DIRECTORY=public/uploads
-ADMIN_PASSWORD_HASH=scrypt$...
+ADMIN_PASSWORD_HASH=scrypt\$generated-salt\$generated-digest
 ADMIN_SESSION_SECRET=replace-with-at-least-32-random-characters
 PUBLIC_SITE_URL=https://your-domain.com
 PORT=3000
 ```
 
-Tạo password hash và một session secret ngẫu nhiên:
+Generate the admin password hash and session secret:
 
 ```bash
-npm run admin:password -- 'mat-khau-dai-va-rieng'
+npm run admin:password -- 'a-long-private-password'
 openssl rand -base64 48
 ```
 
-Chỉ chép giá trị hash/secret vào file env trên máy chạy ứng dụng; không commit chúng.
+The password command prints an `ADMIN_PASSWORD_HASH=...` line that is already escaped for a Next.js `.env` file. Copy that line exactly; do not remove or double-escape the backslashes. Never commit real password hashes or session secrets.
 
-## Khởi tạo, nạp khách và sao lưu
+## Admin areas
 
-CSV có header `name,maxGuests`; xem [`data/guests.example.csv`](data/guests.example.csv).
+### Guest links and RSVP
+
+`/admin` manages invitation links and responses. Invitation rows can be searched and filtered by active, disabled, responded, or pending status. Use **Disable** when you want to preserve RSVP history. **Delete** is permanent and also removes the linked RSVP after a confirmation warning.
+
+### Invitation content
+
+`/admin/edit` edits the wedding invitation by section, including couple information, cover copy, countdown labels, love-story milestones, event details, gallery copy, personalized invitation/RSVP copy, and footer text. Changes are stored in SQLite and apply to both the general and personalized invitations.
+
+### Appearance themes
+
+`/admin/appearance` provides five curated global themes:
+
+- Ivory Gold — current/default design.
+- Blush Rose.
+- Sage Garden.
+- Burgundy Cream.
+- Midnight Gold.
+
+Selecting a theme is only a pending change until **Save appearance** is clicked. Preview uses a validated cosmetic override and does not persist anything. The selected theme applies to `/` and all `/moi/<code>` invitations; the admin interface keeps its own stable appearance.
+
+### Media
+
+The media manager supports hero, bride/groom portraits, story, venue/map, and gallery images. Gallery assets can be reordered. Original files live in `MEDIA_UPLOAD_DIRECTORY`; SQLite stores metadata such as `focusX`, `focusY`, and `zoom`.
+
+Image framing is non-destructive: source files are not rewritten. `/uploads/<filename>` is served by a Next.js Route Handler at runtime, so new uploads work without rebuilding the app. If uploads are stored outside the release directory, point `MEDIA_UPLOAD_DIRECTORY` at a persistent volume and keep Nginx proxying `/uploads/` to Next.js.
+
+## Database, seed, and backup
+
+Guest CSV files use the header `name,maxGuests`; see [`data/guests.example.csv`](data/guests.example.csv).
 
 ```bash
 npm run db:init
@@ -58,26 +104,44 @@ npm run db:seed -- data/guests.csv
 npm run db:backup
 ```
 
-`db:init` không xóa dữ liệu hiện có. `db:seed` tạo mã ngẫu nhiên và in URL riêng cho từng khách. `db:backup` checkpoint WAL rồi tạo bản sao có timestamp trong `SQLITE_BACKUP_DIRECTORY`.
+- `db:init` creates/migrates required tables without deleting existing data.
+- `db:seed` creates random invitation codes and prints personalized URLs.
+- `db:backup` checkpoints the WAL and creates a timestamped SQLite backup in `SQLITE_BACKUP_DIRECTORY`.
 
-Khi triển khai VPS, cần sao lưu cả file SQLite và thư mục upload (mặc định `public/uploads/`, hoặc đường dẫn trong `MEDIA_UPLOAD_DIRECTORY`). SQLite chỉ chứa file metadata, bao gồm căn khung; nó không chứa bytes ảnh. Route Handler phục vụ upload theo thời gian chạy và các tên file được sinh ngẫu nhiên có thể cache dài hạn, nên không cần restart sau upload. Nếu đặt `MEDIA_UPLOAD_DIRECTORY` ngoài thư mục release, hãy trỏ biến này vào volume bền vững và giữ nguyên đường dẫn qua mỗi lần deploy/rollback; Nginx phải tiếp tục proxy `/uploads/` tới Next, không trỏ alias vào thư mục release cũ.
+Back up both SQLite and the upload directory. SQLite stores media metadata, not the image bytes themselves.
 
-## Kiểm tra và build
+## Tests and build
 
 ```bash
 npm test
 npm run lint
 npm run build
-npm run start
 ```
 
-Browser test local (tự build server và dùng SQLite tạm):
+Browser tests:
 
 ```bash
 npx playwright install chromium
 npm run test:e2e
 ```
 
-## Triển khai Oracle VPS
+The repository also includes GitHub Actions CI. Pushes to `main` and pull requests automatically run unit tests, lint, build, and Playwright Chromium E2E checks.
 
-Dùng Node.js + PM2 + Nginx, không cần Vercel. Xem [DEPLOYMENT.md](DEPLOYMENT.md) để cài đặt HTTPS, reverse proxy, SQLite backup/restore, PM2 reload và rollback.
+## Deployment
+
+The intended production setup is Node.js + PM2 + Nginx on a VPS; Vercel is not required. See [DEPLOYMENT.md](DEPLOYMENT.md) for HTTPS, reverse proxy, SQLite backup/restore, PM2 reload, and rollback instructions.
+
+A typical update is:
+
+```bash
+npm run db:backup
+git pull --ff-only
+npm ci
+npm test
+npm run lint
+npm run build
+npm run db:init
+pm2 reload ecosystem.config.cjs --update-env
+```
+
+Keep the SQLite database and uploaded media on persistent storage across deployments and rollbacks.
