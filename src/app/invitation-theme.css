@@ -1,0 +1,65 @@
+.invitation-theme-scope {
+  background: var(--invitation-canvas);
+  color: var(--invitation-ink);
+  min-height: 100svh;
+}
+
+.invitation-theme-scope :focus-visible {
+  outline: 2px solid var(--invitation-focus-ring);
+  outline-offset: 3px;
+}
+
+.invitation-theme-scope .hero {
+  background: radial-gradient(circle at 50% 28%, var(--invitation-hero-start) 0, var(--invitation-hero-mid) 49%, var(--invitation-hero-end) 100%);
+  color: var(--invitation-hero-text);
+}
+.invitation-theme-scope .hero.has-hero-media .hero-frame { background: var(--invitation-hero-overlay); }
+.invitation-theme-scope .hero-frame { border-color: var(--invitation-border-strong); }
+.invitation-theme-scope .hero-ornament { border-color: var(--invitation-hero-ornament); }
+
+.invitation-theme-scope .countdown-section,
+.invitation-theme-scope .story-section,
+.invitation-theme-scope .gallery-section,
+.invitation-theme-scope .rsvp-section { background: var(--invitation-paper); }
+
+.invitation-theme-scope .couple-section,
+.invitation-theme-scope .personal-cover { background: var(--invitation-alternate); }
+
+.invitation-theme-scope .event-section { background: var(--invitation-event-surface); }
+.invitation-theme-scope .event-card,
+.invitation-theme-scope .rsvp-card { border-color: var(--invitation-border-strong); }
+.invitation-theme-scope .event-details { border-color: var(--invitation-border-strong); }
+.invitation-theme-scope .event-details > div + div { border-color: var(--invitation-border-medium); }
+
+.invitation-theme-scope .portrait {
+  background: linear-gradient(140deg, var(--invitation-groom-start), var(--invitation-groom-end));
+  box-shadow: inset 0 0 0 8px var(--invitation-portrait-inset);
+}
+.invitation-theme-scope .portrait-bride { background: linear-gradient(140deg, var(--invitation-bride-start), var(--invitation-bride-end)); }
+.invitation-theme-scope .portrait::before,
+.invitation-theme-scope .portrait::after { border-color: var(--invitation-portrait-line); }
+.invitation-theme-scope .portrait span { color: var(--invitation-portrait-symbol); }
+
+.invitation-theme-scope .timeline-marker { background: var(--invitation-paper); }
+.invitation-theme-scope .site-footer {
+  background: var(--invitation-footer-surface);
+  color: var(--invitation-inverse-text);
+}
+.invitation-theme-scope .site-footer small { color: var(--invitation-footer-muted); }
+
+.invitation-theme-scope .rsvp-form select,
+.invitation-theme-scope .rsvp-form textarea {
+  background: var(--invitation-input-surface);
+  border-color: var(--invitation-input-border);
+  color: var(--invitation-ink);
+}
+.invitation-theme-scope .rsvp-form button {
+  background: var(--invitation-action-surface);
+  color: var(--invitation-action-text);
+}
+.invitation-theme-scope .map-link { color: var(--invitation-ink); }
+.invitation-theme-scope .guest-state { background: var(--invitation-canvas); color: var(--invitation-ink); }
+
+/* Keep semantic form feedback independent from aesthetic theme colors. */
+.invitation-theme-scope .form-status-success { color: #4d6946; }
+.invitation-theme-scope .form-status-error { color: #9b4d43; }

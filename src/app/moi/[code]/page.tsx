@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 
+import { InvitationThemeScope } from "@/components/invitation-theme-scope";
 import { PersonalInvitation } from "@/components/personal-invitation";
 import { getInvitationContent } from "@/lib/invitation-content-store";
 import { getInvitation } from "@/lib/invitation-service";
 import { listActiveMedia, toPublicMediaAsset } from "@/lib/media-store";
 import { sqliteInvitationStore } from "@/lib/sqlite-store";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
   const { code } = await params;
@@ -26,5 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
 
 export default async function PersonalInvitationPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  return <PersonalInvitation code={code} media={listActiveMedia().map(toPublicMediaAsset)} content={getInvitationContent()} />;
+  return <InvitationThemeScope>
+    <PersonalInvitation code={code} media={listActiveMedia().map(toPublicMediaAsset)} content={getInvitationContent()} />
+  </InvitationThemeScope>;
 }
