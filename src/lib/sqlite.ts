@@ -59,7 +59,43 @@ const schema = `
 
   CREATE INDEX IF NOT EXISTS rsvps_attendance_updated_idx
     ON rsvps(attendance, updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS media_assets (
+    id INTEGER PRIMARY KEY,
+    slot TEXT NOT NULL CHECK (slot IN ('hero', 'groom', 'bride', 'story', 'venue', 'gallery')),
+    src TEXT NOT NULL UNIQUE,
+    alt TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    focus_x REAL NOT NULL DEFAULT 50 CHECK (focus_x BETWEEN 0 AND 100),
+    focus_y REAL NOT NULL DEFAULT 50 CHECK (focus_y BETWEEN 0 AND 100),
+    zoom REAL NOT NULL DEFAULT 1 CHECK (zoom BETWEEN 1 AND 3),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS media_assets_slot_order_idx
+  ON media_assets(slot, sort_order, id);
+
+  CREATE TABLE IF NOT EXISTS site_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    venue TEXT,
+    address TEXT,
+    date_label TEXT,
+    time_label TEXT,
+    maps_url TEXT,
+    updated_at TEXT NOT NULL
+  );
 `;
+
+function migrateMediaAssetCropColumns(connection: SqliteDatabase): void {
+  const columns = connection.prepare("PRAGMA table_info(media_assets)").all() as Array<{ name: string }>;
+  const existingColumns = new Set(columns.map((column) => column.name));
+
+  if (!existingColumns.has("focus_x")) connection.exec("ALTER TABLE media_assets ADD COLUMN focus_x REAL NOT NULL DEFAULT 50");
+  if (!existingColumns.has("focus_y")) connection.exec("ALTER TABLE media_assets ADD COLUMN focus_y REAL NOT NULL DEFAULT 50");
+  if (!existingColumns.has("zoom")) connection.exec("ALTER TABLE media_assets ADD COLUMN zoom REAL NOT NULL DEFAULT 1");
+}
 
 function wrapNativeDatabase(native: NativeDatabase, backupDatabase: NativeSqliteModule["backup"]): SqliteDatabase {
   return {
@@ -94,7 +130,7 @@ function wrapNativeDatabase(native: NativeDatabase, backupDatabase: NativeSqlite
 
 function openDatabase(databasePath: string): SqliteDatabase {
   try {
-    const BetterSqlite3 = nodeRequire("better-sqlite3") as new (path: string) => SqliteDatabase;
+    const BetterSqlite3 = nodeRequire(/* turbopackIgnore: true */ "better-sqlite3") as new (path: string) => SqliteDatabase;
     return new BetterSqlite3(databasePath);
   } catch (error) {
     if (!(error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND")) throw error;
@@ -119,6 +155,7 @@ export function getDatabase(): SqliteDatabase {
 export function initializeDatabase(): void {
   const connection = getDatabase();
   connection.exec(schema);
+  migrateMediaAssetCropColumns(connection);
 
   if (process.env.NODE_ENV === "development") {
     const now = new Date().toISOString();

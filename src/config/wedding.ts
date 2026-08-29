@@ -31,3 +31,12 @@ export const wedding = {
     { date: "Mùa đông 2027", title: "Ngày chung đôi", description: "Và bây giờ, chúng mình mong được đón khoảnh khắc này cùng bạn." },
   ] satisfies LoveStoryMilestone[],
 } as const;
+
+/** The event values that administrators may override without turning the config into a CMS. */
+export type EditableWeddingEvent = {
+  venue: string;
+  address: string;
+  dateLabel: string;
+  timeLabel: string;
+  mapsUrl: string;
+};

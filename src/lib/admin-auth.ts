@@ -78,4 +78,3 @@ export function serializeAdminCookie(token: string, maxAge = adminSessionCookie.
   if (adminSessionCookie.secure) attributes.push("Secure");
   return attributes.join("; ");
 }
-

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AdminInvitation, AdminRsvp, AdminSummary } from "@/lib/sqlite-store";
+import type { SiteSettings } from "@/lib/site-settings";
 import { AdminDashboard } from "./admin-dashboard";
 
 const summary: AdminSummary = {
@@ -66,12 +67,22 @@ const rsvps: AdminRsvp[] = [
   },
 ];
 
+const settings: SiteSettings = {
+  venue: "The Garden Wedding Venue",
+  address: "123 Đường Hoa Nắng, Quận 2, Thành phố Hồ Chí Minh",
+  dateLabel: "Chủ Nhật, ngày 19 tháng 12 năm 2027",
+  timeLabel: "10:30 sáng",
+  mapsUrl: "https://maps.google.com/?q=The+Garden+Wedding+Venue",
+  venueImage: null,
+};
+
 function fixture(overrides: Partial<React.ComponentProps<typeof AdminDashboard>> = {}) {
   return {
     summary,
     invitations,
     rsvps,
     siteUrl: "http://localhost:3000",
+    settings,
     ...overrides,
   };
 }
@@ -157,6 +168,7 @@ describe("AdminDashboard", () => {
 
     expect(writeText).toHaveBeenCalledWith(invitationUrl);
     expect(await screen.findByText("Đã sao chép link mời cho Cô Lan")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Xem trước thiệp của Cô Lan" })).toHaveAttribute("href", invitationUrl);
   });
 
   it("announces mutation errors and exposes mobile table scrolling", async () => {
@@ -171,5 +183,21 @@ describe("AdminDashboard", () => {
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Không thể tạo thiệp mời."));
     expect(document.querySelector(".admin-table-wrap")).toBeInTheDocument();
+  });
+
+  it("saves venue settings without changing the invitation rows", async () => {
+    const updatedSettings = { ...settings, venue: "Sảnh Hoa", address: "12 Đường Mùa Xuân" };
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ settings: updatedSettings }), { status: 200 }),
+    );
+
+    render(<AdminDashboard {...fixture({ fetcher })} />);
+    fireEvent.change(screen.getByLabelText("Tên địa điểm"), { target: { value: "Sảnh Hoa" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lưu thông tin địa điểm" }));
+
+    expect(await screen.findByText("Đã lưu thông tin địa điểm.")).toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledWith("/api/admin/settings", expect.objectContaining({ method: "PUT" }));
+    expect(screen.getAllByText("Cô Lan").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Anh Minh").length).toBeGreaterThan(0);
   });
 });

@@ -4,7 +4,7 @@
 
 Dùng Node.js LTS 22.5 trở lên (ARM64 trên Oracle VPS). Ứng dụng ưu tiên `better-sqlite3`; `node:sqlite` chỉ là fallback để chạy local khi dependency native chưa có.
 
-Trên VPS tạo `.env` từ `.env.example`; không commit file này. Đặt `SQLITE_PATH` ở ổ đĩa bền vững mà user chạy PM2 có quyền đọc/ghi, tạo `ADMIN_PASSWORD_HASH` bằng lệnh của dự án, và tạo `ADMIN_SESSION_SECRET` ít nhất 32 ký tự ngẫu nhiên.
+Trên VPS tạo `.env` từ `.env.example`; không commit file này. Đặt `SQLITE_PATH` ở ổ đĩa bền vững mà user chạy PM2 có quyền đọc/ghi, đặt `MEDIA_UPLOAD_DIRECTORY` ở thư mục upload bền vững mà cùng user có quyền đọc/ghi, tạo `ADMIN_PASSWORD_HASH` bằng lệnh của dự án, và tạo `ADMIN_SESSION_SECRET` ít nhất 32 ký tự ngẫu nhiên.
 
 ```bash
 cp .env.example .env
@@ -60,9 +60,21 @@ pm2 logs huy-nhi-wedding
 
 `npm run db:backup` thực hiện WAL checkpoint trước khi dùng API backup của SQLite. Có thể chạy lệnh này bằng cron với cùng user chạy PM2. Đặt `SQLITE_BACKUP_DIRECTORY` trên volume bền vững và sao chép các file backup sang nơi lưu trữ khác.
 
+## Ảnh và metadata căn khung
+
+File ảnh gốc nằm trong `MEDIA_UPLOAD_DIRECTORY` (mặc định là `public/uploads/`); SQLite chỉ lưu đường dẫn tương đối, mô tả ảnh, thứ tự và metadata căn khung (`focusX`, `focusY`, `zoom`). Next Route Handler phục vụ `/uploads/<tên-file>` trực tiếp từ thư mục này theo thời gian chạy, vì vậy upload mới trả về ảnh ngay sau khi ghi mà không cần restart PM2; Nginx trong `deploy/nginx-wedding.conf` phải proxy `/uploads/` về Next và không được trỏ alias sang thư mục static của bản release. Tên file upload được sinh ngẫu nhiên và response ảnh có cache dài hạn, nên file gốc không được ghi đè. Trang public và bản xem trước iframe đọc cùng metadata nên hiển thị cùng vị trí trọng tâm ở mobile/desktop. Vì vậy mỗi lần sao lưu/khôi phục phải thực hiện cả hai việc: chạy `npm run db:backup` cho SQLite và sao chép toàn bộ `MEDIA_UPLOAD_DIRECTORY` sang nơi lưu trữ khác. Giữ thư mục này trên volume bền vững và không để một lần deploy mới thay thế nó.
+
+Ví dụ cấu hình thư mục ngoài release:
+
+```env
+MEDIA_UPLOAD_DIRECTORY=/var/lib/huy-nhi-wedding/uploads
+```
+
+Sau khi khôi phục database, đặt lại các file ảnh vào đúng thư mục `MEDIA_UPLOAD_DIRECTORY` trước khi bật PM2; nếu chỉ khôi phục SQLite, các bản ghi ảnh vẫn còn nhưng URL ảnh sẽ không tải được.
+
 ## Khôi phục dữ liệu
 
-Chọn đúng file backup có timestamp, dừng ứng dụng, thay **chỉ** file database tại `SQLITE_PATH`, xóa các file `-wal`/`-shm` cũ cùng tên nếu còn, rồi khởi động lại:
+Chọn đúng file backup có timestamp, dừng ứng dụng, thay **chỉ** file database tại `SQLITE_PATH`, khôi phục song song nội dung `MEDIA_UPLOAD_DIRECTORY`, xóa các file `-wal`/`-shm` cũ cùng tên nếu còn, rồi khởi động lại:
 
 ```bash
 pm2 stop huy-nhi-wedding

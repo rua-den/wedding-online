@@ -6,11 +6,13 @@ import { wedding } from "@/config/wedding";
 
 import { Invitation } from "./invitation";
 import { RsvpForm } from "./rsvp-form";
+import type { PublicMediaAsset } from "@/lib/media-store";
+import type { SiteSettings } from "@/lib/site-settings";
 
 type InvitationData = { guestName: string; maxGuests: number };
 const invitationLoadError = "Không thể tải thiệp mời. Vui lòng thử lại sau.";
 
-export function PersonalInvitation({ code }: { code: string }) {
+export function PersonalInvitation({ code, media = [], settings }: { code: string; media?: PublicMediaAsset[]; settings?: SiteSettings }) {
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [error, setError] = useState("");
 
@@ -41,7 +43,7 @@ export function PersonalInvitation({ code }: { code: string }) {
       <h1>{invitation.guestName}</h1>
       <p>Huy &amp; Nhi rất hân hạnh được đón tiếp bạn trong ngày vui của chúng mình.</p>
     </section>
-    <Invitation />
+    <Invitation media={media} settings={settings} />
     <section className="rsvp-section section-shell" aria-labelledby="rsvp-title">
       <div className="rsvp-card">
         <p className="eyebrow">Xác nhận tham dự</p>

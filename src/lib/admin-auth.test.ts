@@ -25,5 +25,13 @@ describe("admin authentication", () => {
     const request = new Request("http://localhost/api/admin", { headers: { cookie: `theme=light; wedding_admin_session=${token}` } });
     expect(requireAdmin(request)).toBe(true);
   });
-});
 
+  it("keeps the production Secure flag even if an unsafe override is present", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ADMIN_SESSION_SECURE", "false");
+    vi.resetModules();
+    const { serializeAdminCookie: serializeFreshCookie } = await import("./admin-auth");
+
+    expect(serializeFreshCookie("test-token")).toContain("Secure");
+  });
+});

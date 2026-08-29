@@ -1,14 +1,5 @@
 import { expect, test } from "playwright/test";
-
-const password = process.env.E2E_ADMIN_PASSWORD ?? "huy-nhi-e2e-password";
-
-async function login(page: import("playwright/test").Page) {
-  await page.goto("/admin");
-  await expect(page).toHaveURL(/\/admin\/login/);
-  await page.getByLabel("Mật khẩu").fill(password);
-  await page.getByRole("button", { name: "Đăng nhập" }).click();
-  await expect(page).toHaveURL(/\/admin$/);
-}
+import { login } from "./auth";
 
 test("admin login gates the dashboard and creates a usable invitation", async ({ page }) => {
   await login(page);
@@ -42,4 +33,3 @@ test("admin can deactivate an invitation and filter/export RSVP rows", async ({ 
   await page.getByRole("link", { name: "Xuất CSV" }).click();
   await expect((await download).suggestedFilename()).toBe("rsvp.csv");
 });
-

@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 
+import { wedding } from "@/config/wedding";
 import type { AdminInvitation, AdminRsvp, AdminSummary } from "@/lib/sqlite-store";
+import type { MediaAsset } from "@/lib/media-store";
+import type { SiteSettings } from "@/lib/site-settings";
+import { AdminMediaPanel } from "./admin-media-panel";
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -11,8 +15,30 @@ type AdminDashboardProps = {
   invitations: AdminInvitation[];
   rsvps: AdminRsvp[];
   siteUrl: string;
+  media?: MediaAsset[];
+  settings?: SiteSettings;
   fetcher?: Fetcher;
 };
+
+type EditableSettings = Pick<SiteSettings, "venue" | "address" | "dateLabel" | "timeLabel" | "mapsUrl">;
+
+const fallbackSettings: EditableSettings = {
+  venue: wedding.event.venue,
+  address: wedding.event.address,
+  dateLabel: wedding.event.dateLabel,
+  timeLabel: wedding.event.timeLabel,
+  mapsUrl: wedding.event.mapsUrl,
+};
+
+function editableSettings(settings?: SiteSettings): EditableSettings {
+  return {
+    venue: settings?.venue ?? fallbackSettings.venue,
+    address: settings?.address ?? fallbackSettings.address,
+    dateLabel: settings?.dateLabel ?? fallbackSettings.dateLabel,
+    timeLabel: settings?.timeLabel ?? fallbackSettings.timeLabel,
+    mapsUrl: settings?.mapsUrl ?? fallbackSettings.mapsUrl,
+  };
+}
 
 const emptySummary: AdminSummary = {
   invitationCount: 0,
@@ -43,7 +69,7 @@ function invitationUrl(siteUrl: string, code: string) {
   return `${siteUrl.replace(/\/$/, "")}/moi/${encodeURIComponent(code)}`;
 }
 
-export function AdminDashboard({ summary: initialSummary, invitations: initialInvitations, rsvps: initialRsvps, siteUrl, fetcher }: AdminDashboardProps) {
+export function AdminDashboard({ summary: initialSummary, invitations: initialInvitations, rsvps: initialRsvps, siteUrl, media = [], settings, fetcher }: AdminDashboardProps) {
   const request = fetcher ?? fetch;
   const [summary, setSummary] = useState<AdminSummary>(initialSummary ?? emptySummary);
   const [invitations, setInvitations] = useState(initialInvitations);
@@ -58,6 +84,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingMaxGuests, setEditingMaxGuests] = useState("2");
+  const [settingsForm, setSettingsForm] = useState<EditableSettings>(() => editableSettings(settings));
 
   const visibleInvitations = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -189,6 +216,30 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
     }
   }
 
+  async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await request("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settingsForm),
+      });
+      if (!response.ok) {
+        setMessage(await responseMessage(response, "Không thể lưu thông tin địa điểm."));
+        return;
+      }
+      const body = (await response.json()) as { settings?: SiteSettings };
+      if (body.settings) setSettingsForm(editableSettings(body.settings));
+      setMessage("Đã lưu thông tin địa điểm.");
+    } catch {
+      setMessage("Không thể kết nối. Vui lòng thử lại.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function updateStatus(value: typeof status) {
     setStatus(value);
     void refresh({ query, status: value });
@@ -216,6 +267,20 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
         <article className="admin-stat"><span>Số khách xác nhận</span><strong>{summary.confirmedGuestCount}</strong></article>
       </section>
 
+      <section className="admin-panel" aria-labelledby="settings-title">
+        <div className="admin-panel-heading"><div><p className="eyebrow">Thông tin buổi lễ</p><h2 id="settings-title">Địa điểm &amp; thời gian</h2></div></div>
+        <form className="admin-settings-grid" onSubmit={saveSettings}>
+          <label>Tên địa điểm<input value={settingsForm.venue} onChange={(event) => setSettingsForm((current) => ({ ...current, venue: event.target.value }))} required maxLength={160} /></label>
+          <label>Địa chỉ<input value={settingsForm.address} onChange={(event) => setSettingsForm((current) => ({ ...current, address: event.target.value }))} required maxLength={240} /></label>
+          <label>Nhãn ngày tổ chức<input value={settingsForm.dateLabel} onChange={(event) => setSettingsForm((current) => ({ ...current, dateLabel: event.target.value }))} required maxLength={160} /></label>
+          <label>Thời gian buổi lễ<input value={settingsForm.timeLabel} onChange={(event) => setSettingsForm((current) => ({ ...current, timeLabel: event.target.value }))} required maxLength={80} /></label>
+          <label>Link Google Maps (HTTPS)<input type="url" value={settingsForm.mapsUrl} onChange={(event) => setSettingsForm((current) => ({ ...current, mapsUrl: event.target.value }))} required maxLength={2048} /></label>
+          <button className="admin-primary-button" type="submit" disabled={busy}>Lưu thông tin địa điểm</button>
+        </form>
+      </section>
+
+      <AdminMediaPanel initialAssets={media} request={request} />
+
       <section className="admin-panel">
         <div className="admin-panel-heading"><div><p className="eyebrow">Link riêng</p><h2>Tạo thiệp mời</h2></div></div>
         <form className="admin-form-grid" onSubmit={createInvitation}>
@@ -233,13 +298,13 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
             {editingCode === invitation.code ? <>
               <td><label className="admin-inline-field"><span className="sr-only">Tên khách mời {invitation.code}</span><input aria-label={`Tên khách mời ${invitation.code}`} value={editingName} onChange={(event) => setEditingName(event.target.value)} maxLength={160} /></label></td>
               <td><code>{invitation.code}</code></td>
-              <td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button></div></td>
+              <td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button><a className="admin-text-button" href={invitationUrl(siteUrl, invitation.code)} target="_blank" rel="noreferrer" aria-label={`Xem trước thiệp của ${invitation.name}`}>Xem trước</a></div></div></td>
               <td><label className="admin-inline-field"><span className="sr-only">Số khách tối đa {invitation.code}</span><select aria-label={`Số khách tối đa ${invitation.code}`} value={editingMaxGuests} onChange={(event) => setEditingMaxGuests(event.target.value)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label></td>
               <td>{invitation.guestCount ?? "—"}</td>
               <td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td>
               <td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void saveInvitation(invitation.code)}>Lưu</button><button className="admin-text-button" type="button" disabled={busy} onClick={cancelEditing}>Hủy</button></div></td>
             </> : <>
-              <td>{invitation.name}</td><td><code>{invitation.code}</code></td><td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button></div></td><td>{invitation.maxGuests}</td><td>{invitation.guestCount ?? "—"}</td><td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td><td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => startEditing(invitation)}>Sửa</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void toggleInvitation(invitation)}>{invitation.active ? "Tắt link" : "Bật link"}</button></div></td>
+              <td>{invitation.name}</td><td><code>{invitation.code}</code></td><td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button><a className="admin-text-button" href={invitationUrl(siteUrl, invitation.code)} target="_blank" rel="noreferrer" aria-label={`Xem trước thiệp của ${invitation.name}`}>Xem trước</a></div></div></td><td>{invitation.maxGuests}</td><td>{invitation.guestCount ?? "—"}</td><td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td><td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => startEditing(invitation)}>Sửa</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void toggleInvitation(invitation)}>{invitation.active ? "Tắt link" : "Bật link"}</button></div></td>
             </>}
           </tr>)}
         </tbody></table></div>
