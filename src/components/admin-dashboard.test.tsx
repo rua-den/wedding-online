@@ -114,6 +114,26 @@ describe("AdminDashboard", () => {
     expect(screen.getByDisplayValue("http://localhost:3000/moi/co-lan-moi")).toBeInTheDocument();
   });
 
+  it("filters invitation links by lifecycle and RSVP state", async () => {
+    const user = userEvent.setup();
+    const disabledInvitation: AdminInvitation = {
+      ...invitations[1],
+      code: "test-disabled",
+      name: "Khách đã tắt",
+      active: false,
+    };
+    render(<AdminDashboard {...fixture({ invitations: [...invitations, disabledInvitation] })} />);
+
+    const filter = screen.getByRole("combobox", { name: "Lọc thiệp mời" });
+    await user.selectOptions(filter, "disabled");
+    expect(screen.getByRole("link", { name: "http://localhost:3000/moi/test-disabled" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "http://localhost:3000/moi/lan-abc" })).not.toBeInTheDocument();
+
+    await user.selectOptions(filter, "responded");
+    expect(screen.getByRole("link", { name: "http://localhost:3000/moi/lan-abc" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "http://localhost:3000/moi/minh-xyz" })).not.toBeInTheDocument();
+  });
+
   it("filters RSVP rows to pending guests", async () => {
     const user = userEvent.setup();
     render(<AdminDashboard {...fixture()} />);
@@ -135,6 +155,24 @@ describe("AdminDashboard", () => {
 
     expect(await screen.findByRole("button", { name: "Bật link" })).toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledWith("/api/admin/invitations", expect.objectContaining({ method: "PATCH" }));
+  });
+
+  it("deletes an invitation after an RSVP-aware confirmation", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn().mockReturnValue(true);
+    vi.stubGlobal("confirm", confirm);
+    const updatedSummary = { ...summary, invitationCount: 1, respondedCount: 0, attendingCount: 0, confirmedGuestCount: 0 };
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ deleted: { code: "lan-abc", name: "Cô Lan", hadRsvp: true }, summary: updatedSummary }), { status: 200 }),
+    );
+
+    render(<AdminDashboard {...fixture({ fetcher })} />);
+    await user.click(screen.getByRole("button", { name: "Xóa link của Cô Lan" }));
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("RSVP"));
+    expect(fetcher).toHaveBeenCalledWith("/api/admin/invitations", expect.objectContaining({ method: "DELETE" }));
+    expect(await screen.findByText("Đã xoá link mời của Cô Lan.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "http://localhost:3000/moi/lan-abc" })).not.toBeInTheDocument();
   });
 
   it("edits an invitation name and guest limit", async () => {
