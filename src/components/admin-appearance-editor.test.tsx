@@ -41,8 +41,20 @@ describe("AdminAppearanceEditor", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("surfaces a recoverable warning for a removed stored theme", () => {
-    render(<AdminAppearanceEditor initialAppearance={{ themeId: "ivory-gold", invalidStoredThemeId: "removed-theme" }} />);
+  it("lets an admin repair a removed stored theme by saving the fallback", async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ appearance: { themeId: "ivory-gold" } }), { status: 200 }));
+    render(<AdminAppearanceEditor initialAppearance={{ themeId: "ivory-gold", invalidStoredThemeId: "removed-theme" }} fetcher={fetcher} />);
+
     expect(screen.getByRole("alert")).toHaveTextContent("removed-theme");
+    expect(screen.getByRole("button", { name: "Lưu giao diện" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Lưu giao diện" }));
+    expect(fetcher).toHaveBeenCalledWith("/api/admin/appearance", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({ themeId: "ivory-gold" }),
+    }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(await screen.findByText("Đã lưu giao diện thiệp.")).toBeInTheDocument();
   });
 });
