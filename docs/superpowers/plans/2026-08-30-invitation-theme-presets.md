@@ -1,9 +1,21 @@
 # Invitation Theme Presets Implementation Plan
 
 ## Status
-Planned on 2026-08-30. Not implemented yet.
+Planned and reviewed on 2026-08-30. Not implemented yet.
 
 This plan is intentionally separate from `invitation_content`: copy/content and visual appearance should remain independent so future appearance work does not make the content schema harder to evolve.
+
+## Review notes
+A second-pass architecture review was completed after the first draft. The following decisions are now explicit requirements rather than implementation suggestions:
+
+1. **The current design is the exact baseline.** `ivory-gold` should copy the current CSS variable/literal palette into tokens before any aesthetic cleanup. Refactoring must not be used as an excuse to subtly redesign the default invitation.
+2. **Theme tokens need dedicated action/footer/hero/focus roles.** Do not overload `ink` or `inverseText` as button/footer surfaces, especially for the dark preset. The registry must include explicit `actionSurface`, `actionText`, `footerSurface`, `heroText`, and `focusRing` tokens.
+3. **The full personalized page must be themed.** Personal cover and RSVP live outside the shared `Invitation` component today; a theme implementation that changes only `Invitation` is incomplete.
+4. **Public CSS needs a full literal-color audit.** Existing root variables cover only part of the visual system. Hero gradients, section surfaces, portrait gradients, footer, inputs/buttons, borders/overlays and media states must be included.
+5. **Preview must never persist.** A pending theme may be rendered through a validated preset-ID override, but previewing cannot mutate SQLite or content/media state.
+6. **Admin stays visually stable.** Wedding themes are scoped to public invitation wrappers only; `/admin` must not inherit the selected wedding palette.
+7. **Dark-theme viewport coverage must be checked.** The themed wrapper must cover the full viewport so dark themes do not reveal the default ivory body between sections or during normal scrolling. Mobile overscroll/bounce should be manually inspected.
+8. **Contrast is a shipping gate.** Key text/action token pairs should be tested from the TypeScript registry; failures require palette changes, not lower thresholds.
 
 ## Goal
 Add a safe theme picker for the wedding invitation so an admin can switch the entire public invitation between curated visual presets without editing CSS, while preserving readability, mobile behavior, uploaded media, RSVP behavior, and the current design as the default.
@@ -15,7 +27,7 @@ The first version is preset-only. It must not accept arbitrary CSS or unrestrict
 ### v1 behavior
 - Add a new top-level admin area: **Giao diện** at `/admin/appearance`.
 - Ship 5 curated presets:
-  1. `ivory-gold` — current warm ivory/champagne design; this is the default and must visually match the existing invitation as closely as practical.
+  1. `ivory-gold` — current warm ivory/champagne design; this is the default and must preserve the current invitation palette/layout as the regression baseline.
   2. `blush-rose` — soft blush, rose accent, warm dark text.
   3. `sage-garden` — cream/sage botanical palette.
   4. `burgundy-cream` — cream surfaces with restrained burgundy accents.
@@ -76,12 +88,17 @@ export type InvitationThemeTokens = {
   accentStrong: string;
   botanical: string;
   inverseText: string;
+  footerSurface: string;
   footerMuted: string;
   inputSurface: string;
+  actionSurface: string;
+  actionText: string;
+  focusRing: string;
   heroStart: string;
   heroMid: string;
   heroEnd: string;
   heroOverlay: string;
+  heroText: string;
   groomPortraitStart: string;
   groomPortraitEnd: string;
   bridePortraitStart: string;
@@ -110,7 +127,7 @@ Add helpers such as:
 - `getInvitationTheme(id)`
 - `themeCssVariables(theme)`
 
-`themeCssVariables()` maps the registry tokens to scoped custom properties used by public CSS.
+`themeCssVariables()` maps the registry tokens to scoped custom properties used by public CSS. It should return only values from a known registry definition. The React typing can use a narrow `CSSProperties & Record<\`--invitation-${string}\`, string>` helper rather than accepting arbitrary runtime style keys.
 
 ### 2. Theme scope component
 Create a small shared component such as `src/components/invitation-theme-scope.tsx`.
@@ -120,6 +137,7 @@ Responsibilities:
 - Resolve the preset from the registry.
 - Apply `data-invitation-theme="<id>"` for debugging/testing.
 - Apply the preset's CSS custom properties to one wrapper using an inline style object.
+- Provide `min-height: 100svh` and the theme canvas as the wrapper background so the selected theme owns the visible public viewport.
 - Never inject arbitrary CSS strings from request/user input; only registry values are allowed.
 
 The theme variables must inherit through all public invitation sections.
@@ -130,9 +148,11 @@ Do not apply the selected wedding theme to `/admin`. Admin should remain visuall
 Refactor public invitation colors in `src/app/globals.css` (or move the public-theme overrides into a dedicated `src/app/invitation-theme.css` imported after `globals.css`) so all theme-sensitive public colors come from variables inherited from the theme scope.
 
 For a low-risk migration:
+- First inventory every literal color in public invitation selectors and record its exact current value in `ivory-gold` tokens.
 - The existing root variables may remain as admin/fallback values.
 - Inside the invitation scope, alias/override the existing variables from the new theme token set so current selectors continue to work where possible.
 - Replace remaining public literal theme colors with dedicated variables.
+- Do not refactor unrelated spacing, typography, sizing, or layout in the same milestone.
 
 At minimum cover:
 - page/canvas background
@@ -141,14 +161,16 @@ At minimum cover:
 - event surface
 - hero gradient start/middle/end
 - hero media overlay/legibility layer
+- hero text when an uploaded image is present
 - body/heading text
 - muted text
 - accent and strong accent
 - floral/botanical color
 - soft and strong borders
-- inverse/footer text and footer secondary text
+- footer surface, inverse/footer text and footer secondary text
 - RSVP input surface
-- RSVP primary button surface/text
+- RSVP primary action surface/text
+- focus ring
 - groom portrait gradient
 - bride portrait gradient
 - portrait decorative lines/symbols
@@ -188,7 +210,7 @@ Add `/api/admin/appearance`.
 
 `GET`
 - Require admin session using existing admin-route helpers.
-- Return `{ appearance, themes }` or only `{ appearance }` if the page gets registry metadata directly from server code.
+- Return `{ appearance }`; preset metadata should normally come from the shared registry/server props rather than being duplicated in API payloads.
 - Use `Cache-Control: no-store`.
 
 `PUT`
@@ -211,9 +233,10 @@ Pass the resolved theme into the shared theme scope so the public invitation and
 
 Important details:
 - The personalized cover and RSVP section are currently outside the common `Invitation` component; wrap the full personalized experience, not only the inner common invitation.
-- Avoid nested `<main>` regressions when introducing the wrapper. The theme scope should preferably render a neutral `<div>` wrapper or support `asChild`/class-only behavior.
+- Avoid nested `<main>` regressions when introducing the wrapper. The theme scope should render a neutral `<div>` wrapper.
 - Ensure personalized routes do not retain a stale theme after an admin saves a new one. If necessary, mark the route dynamic consistently with the home route.
 - Theme changes must not affect invitation lookup, RSVP deadline logic, guest count, or RSVP submission contracts.
+- On dark themes, inspect normal scrolling and mobile overscroll/bounce for flashes of the root ivory background. If the wrapper alone cannot prevent a visible flash, solve that as a rendering/background issue without applying the wedding palette to admin pages.
 
 ### 7. Admin navigation and page
 Extend `AdminTabs` from:
@@ -262,9 +285,9 @@ Preview must work before saving.
 Recommended mechanism:
 - Add a validated cosmetic query override such as `previewTheme=<known-id>` to the preview URL.
 - The server may render that known preset for the request without persisting it.
-- Unknown values are ignored/fall back safely.
+- Unknown values are ignored/fall back safely to the persisted/default theme.
 - Only registry IDs are accepted; never accept raw colors or CSS through the query string.
-- The override must not alter SQLite.
+- The override must not alter SQLite, invitation content, media, guest data, or RSVP data.
 
 For best coverage:
 - If an active invitation exists, let the appearance page preview a personalized invitation URL so the personal cover + RSVP section are visible under the pending theme.
@@ -278,6 +301,7 @@ All five presets must preserve the same layout and component structure. Only the
 
 #### Ivory Gold
 - Baseline/current design.
+- Exact current color values should be captured before refactor for all existing variables and literal public colors.
 - Warm ivory canvas, champagne accents, brown-black ink, muted sage ornament.
 - This preset is the visual regression reference.
 
@@ -300,11 +324,12 @@ All five presets must preserve the same layout and component structure. Only the
 - Footer may use deep burgundy if inverse text passes contrast.
 
 #### Midnight Gold
-- Dark navy/charcoal primary canvas with light paper-like dark surfaces.
+- Dark navy/charcoal primary canvas with distinct dark surfaces.
 - Warm gold accent.
 - Light main text and sufficiently distinct muted text.
+- `actionSurface`, `footerSurface`, and `ink` must remain separate concepts so controls/footer are not forced into the same value as body text.
 - Inputs/cards must remain visibly separated and focusable.
-- Uploaded photos must not lose legibility of overlaid text; hero overlay is especially important.
+- Uploaded photos must not lose legibility of overlaid text; `heroOverlay` + `heroText` are especially important.
 
 ### 11. Accessibility guardrails
 - Normal text contrast target: WCAG AA 4.5:1 or better.
@@ -319,8 +344,10 @@ Because preset tokens live in TypeScript, add a small contrast utility/test for 
 - `ink` vs `canvas`
 - `ink` vs `paper`
 - `muted` vs `paper`
-- `inverseText` vs footer/button dark surface
-- primary button text vs button surface
+- `inverseText` vs `footerSurface`
+- `actionText` vs `actionSurface`
+- `heroText` against the effective hero background/overlay strategy where a static check is meaningful
+- `focusRing` against the most common adjacent surfaces
 
 If a token pair cannot meet AA while preserving the concept, adjust the palette before shipping; do not weaken the test threshold.
 
@@ -334,11 +361,12 @@ Files expected:
 - theme registry/contrast tests
 
 Work:
-1. Capture the current visual palette as `ivory-gold`.
-2. Define all semantic tokens.
-3. Refactor every public literal theme color to token usage.
-4. Render current invitation through the scope using `ivory-gold`.
-5. Verify no intended visual change in the default theme.
+1. Inventory the exact current public palette before changing CSS.
+2. Capture the current visual palette as `ivory-gold` tokens.
+3. Define all semantic tokens, including hero/action/footer/focus roles.
+4. Refactor every public literal theme color to token usage.
+5. Render current invitation through the scope using `ivory-gold`.
+6. Verify no intended visual change in the default theme.
 
 Suggested commit: `refactor(theme): tokenize invitation palette`
 
@@ -354,7 +382,7 @@ Work:
 1. Add singleton table.
 2. Add default/fallback/validation behavior.
 3. Add protected GET/PUT API.
-4. Test auth, fallback, save, invalid ID, and persistence.
+4. Test auth, fallback, save, invalid ID, stale stored ID, and persistence.
 
 Suggested commit: `feat(theme): persist invitation appearance`
 
@@ -369,8 +397,9 @@ Work:
 1. Load persisted appearance on both public routes.
 2. Scope the full invitation including personal cover and RSVP.
 3. Add validated preview-only override.
-4. Ensure current theme applies immediately after server restart/request without rebuild.
+4. Ensure current theme applies on the next rendered request without requiring a rebuild.
 5. Confirm no changes to public invitation or RSVP API contracts.
+6. Verify dark-theme full-viewport/background behavior on mobile.
 
 Suggested commit: `feat(theme): apply themes to public invitations`
 
@@ -405,7 +434,8 @@ Work:
 8. Verify default `ivory-gold` against current mobile and desktop layout.
 9. Verify uploaded hero/groom/bride/story/venue/gallery images under every preset.
 10. Verify RSVP form readability and focus states in every preset.
-11. Run `npm test`, `npm run lint`, `npm run build`, and relevant browser/E2E tests.
+11. Verify dark-theme viewport/overscroll background behavior.
+12. Run `npm test`, `npm run lint`, `npm run build`, and relevant browser/E2E tests.
 
 Suggested commit: `test(theme): cover presets and appearance flow`
 
@@ -434,7 +464,8 @@ Suggested commit: `test(theme): cover presets and appearance flow`
 - personal cover and RSVP inherit theme variables
 - preview override changes only the rendered request
 - unknown preview override falls back safely
-- default theme renders existing palette
+- default theme renders exact baseline palette values
+- themed wrapper covers full visible viewport
 
 ### Visual/browser
 Test at minimum:
@@ -445,6 +476,7 @@ Test at minimum:
 - personalized invitation + RSVP
 - all five themes
 - keyboard focus through RSVP controls and admin theme picker
+- normal mobile scrolling/overscroll with `midnight-gold`
 
 ## Migration and rollback
 - Existing installs require only a normal application deploy; the table is created idempotently during DB initialization.
@@ -457,6 +489,7 @@ Test at minimum:
 ## Documentation updates during implementation
 When implementation is complete:
 - Update this plan Status to `Implemented` with final commit(s) and runtime verification status.
+- Record any palette values that had to change for accessibility in the implementation notes.
 - Add a short admin/theme note to README or deployment/admin docs only if operational behavior needs explanation. No new environment variables are expected.
 
 ## Done when
@@ -464,9 +497,10 @@ When implementation is complete:
 - Admin can preview a pending theme on mobile and desktop without saving.
 - Theme changes persist only after explicit save.
 - `/` and all personalized invitation links use the same saved theme.
-- Current `ivory-gold` remains the safe default and preserves the existing visual identity.
+- Current `ivory-gold` remains the safe default and preserves the exact current palette/layout baseline except for changes required and documented for accessibility.
 - Every theme covers the full invitation, including personal cover and RSVP, not only the shared middle sections.
 - No unrestricted user-provided CSS/color value reaches the renderer.
 - Key token contrast checks pass and manual keyboard/focus review is complete.
+- Dark theme has no obvious ivory gaps/viewport flashes during normal mobile use.
 - Existing media/content/guest/RSVP data is untouched by theme changes.
 - `npm test`, `npm run lint`, `npm run build`, and relevant E2E/browser checks pass before marking this plan implemented.
