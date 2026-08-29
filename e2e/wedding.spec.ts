@@ -68,8 +68,12 @@ async function setCropValue(page: Page, label: string, value: number) {
 
 async function expectImageBytesLoad(page: Page, image: ReturnType<Page["locator"]>) {
   const src = await image.getAttribute("src");
-  expect(src).toMatch(/^\/uploads\//);
-  const response = await page.request.get(src!);
+  expect(src).toBeTruthy();
+  const imageUrl = new URL(src!, page.url());
+  const pageUrl = new URL(page.url());
+  expect(imageUrl.origin).toBe(pageUrl.origin);
+  expect(imageUrl.pathname).toMatch(/^\/uploads\//);
+  const response = await page.request.get(imageUrl.toString());
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toMatch(/^image\//);
   expect((await response.body()).length).toBeGreaterThan(0);
