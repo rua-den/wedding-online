@@ -26,6 +26,11 @@ export function getAppearanceSettings(): AppearanceSettings {
   return { themeId: defaultInvitationThemeId, invalidStoredThemeId: storedThemeId };
 }
 
+export function resolveAppearanceThemeId(previewTheme: unknown): InvitationThemeId {
+  if (isInvitationThemeId(previewTheme)) return previewTheme;
+  return getAppearanceSettings().themeId;
+}
+
 export function updateAppearanceSettings(input: { themeId: InvitationThemeId }): AppearanceSettings {
   if (!isInvitationThemeId(input.themeId)) throw new Error("Theme thiệp không hợp lệ.");
 
