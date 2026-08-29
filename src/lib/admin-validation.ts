@@ -11,6 +11,9 @@ export const adminInvitationUpdateSchema = z.object({
   maxGuests: z.number().int().min(1).max(20).optional(),
   active: z.boolean().optional(),
 }).refine((value) => value.name !== undefined || value.maxGuests !== undefined || value.active !== undefined);
+export const adminInvitationDeleteSchema = z.object({
+  code: z.string().trim().min(1).max(128),
+});
 export const adminInvitationListSchema = z.object({ q: z.string().max(160).default("") });
 export const adminRsvpListSchema = z.object({
   q: z.string().max(160).default(""),
