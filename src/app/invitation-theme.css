@@ -1,5 +1,6 @@
 .invitation-theme-scope {
   background: var(--invitation-canvas);
+  box-shadow: 0 0 0 100vmax var(--invitation-canvas);
   color: var(--invitation-ink);
   min-height: 100svh;
 }
@@ -59,7 +60,42 @@
 }
 .invitation-theme-scope .map-link { color: var(--invitation-ink); }
 .invitation-theme-scope .guest-state { background: var(--invitation-canvas); color: var(--invitation-ink); }
+.invitation-theme-scope .form-status-success { color: var(--invitation-success-text); }
+.invitation-theme-scope .form-status-error { color: var(--invitation-error-text); }
 
-/* Keep semantic form feedback independent from aesthetic theme colors. */
-.invitation-theme-scope .form-status-success { color: #4d6946; }
-.invitation-theme-scope .form-status-error { color: #9b4d43; }
+.invitation-theme-scope .gallery-item { background: var(--invitation-gallery-placeholder); }
+.invitation-theme-scope .gallery-lightbox { background: var(--invitation-lightbox-surface); }
+.invitation-theme-scope .gallery-close,
+.invitation-theme-scope .gallery-arrow,
+.invitation-theme-scope .gallery-count { color: var(--invitation-lightbox-text); }
+
+.invitation-theme-scope .media-frame-fallback {
+  background: linear-gradient(140deg, var(--invitation-media-fallback-start), var(--invitation-media-fallback-end));
+  color: var(--invitation-media-fallback-text);
+}
+.invitation-theme-scope .media-frame-fallback-hero {
+  background: radial-gradient(circle at 50% 28%, var(--invitation-hero-start) 0, var(--invitation-hero-mid) 49%, var(--invitation-hero-end) 100%);
+}
+.invitation-theme-scope .media-frame-fallback-portrait {
+  background: linear-gradient(140deg, var(--invitation-groom-start), var(--invitation-groom-end));
+}
+.invitation-theme-scope .media-frame-fallback-story {
+  background: linear-gradient(140deg, var(--invitation-story-fallback-start), var(--invitation-story-fallback-end));
+}
+.invitation-theme-scope .media-frame-fallback-venue {
+  background: linear-gradient(140deg, var(--invitation-venue-fallback-start), var(--invitation-venue-fallback-end));
+}
+.invitation-theme-scope .media-frame-fallback-gallery {
+  background: linear-gradient(140deg, var(--invitation-gallery-fallback-start), var(--invitation-gallery-fallback-end));
+}
+
+.invitation-theme-scope .hero.has-hero-media { color: var(--invitation-hero-media-text); }
+.invitation-theme-scope .hero-media::after {
+  background: linear-gradient(180deg, var(--invitation-hero-media-overlay-start), var(--invitation-hero-media-overlay-end));
+}
+.invitation-theme-scope .hero.has-hero-media .eyebrow,
+.invitation-theme-scope .hero.has-hero-media .hero-message,
+.invitation-theme-scope .hero.has-hero-media .scroll-cue { color: var(--invitation-hero-media-text); }
+.invitation-theme-scope .hero.has-hero-media .hero-date > span,
+.invitation-theme-scope .hero.has-hero-media h1 em { color: var(--invitation-hero-media-accent); }
+.invitation-theme-scope .hero.has-hero-media .hero-date div { border-color: var(--invitation-hero-media-accent); }
