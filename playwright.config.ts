@@ -39,7 +39,8 @@ export default defineConfig({
       NODE_ENV: "production",
       SQLITE_PATH: databasePath,
       MEDIA_UPLOAD_DIRECTORY: uploadDirectoryPath,
-      ADMIN_PASSWORD_HASH: "scrypt\\$" + salt + "\\$" + digest,
+      // This is a direct process environment value, not a .env file value, so "$" must stay unescaped.
+      ADMIN_PASSWORD_HASH: "scrypt$" + salt + "$" + digest,
       ADMIN_SESSION_SECRET: "e2e-only-session-secret-0123456789012345",
       PUBLIC_SITE_URL: `http://localhost:${port}`,
       PORT: String(port),
