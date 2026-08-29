@@ -11,6 +11,10 @@ describe("Playwright visual evidence configuration", () => {
     expect(config.use?.screenshot).toEqual({ mode: "on", fullPage: true });
   });
 
+  it("stores raw screenshots and traces in the CI artifact directory", () => {
+    expect(config.outputDir).toBe("test-results");
+  });
+
   it("writes an HTML report without opening it automatically", () => {
     expect(config.reporter).toEqual([
       ["line"],
