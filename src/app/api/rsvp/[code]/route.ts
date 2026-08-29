@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { wedding } from "@/config/wedding";
+import { getInvitationContent } from "@/lib/invitation-content-store";
 import { submitRsvp } from "@/lib/invitation-service";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { sqliteInvitationStore } from "@/lib/sqlite-store";
@@ -30,9 +30,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ code
   }
 
   const { code } = await params;
+  const content = getInvitationContent();
   const result = await submitRsvp(code, parsed.data, {
     store: sqliteInvitationStore,
-    deadline: new Date(wedding.event.rsvpDeadline),
+    deadline: new Date(content.event.rsvpDeadline),
     now: new Date(),
   });
 
