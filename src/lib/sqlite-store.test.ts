@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeDatabaseForTests } from "./sqlite";
 import {
   createAdminInvitation,
+  deleteAdminInvitation,
   getAdminSummary,
   getRsvpExportRows,
+  InvitationNotFoundError,
   listAdminInvitations,
   listAdminRsvps,
   sqliteInvitationStore,
@@ -67,6 +69,26 @@ describe("SQLite invitation repository", () => {
     await expect(sqliteInvitationStore.findInvitation("guest-1")).resolves.toBeNull();
     expect(getRsvpExportRows()).toHaveLength(1);
     expect(listAdminInvitations()[0].active).toBe(false);
+  });
+
+  it("deletes an invitation and its RSVP together", async () => {
+    createAdminInvitation({ code: "guest-delete", name: "Khách test", maxGuests: 2 });
+    await sqliteInvitationStore.upsertRsvp({
+      code: "guest-delete",
+      name: "Khách test",
+      attendance: "attending",
+      guestCount: 2,
+      message: "Sẽ tham dự",
+    });
+
+    expect(deleteAdminInvitation("guest-delete")).toEqual({ code: "guest-delete", name: "Khách test", hadRsvp: true });
+    expect(listAdminInvitations()).toHaveLength(0);
+    expect(getRsvpExportRows()).toHaveLength(0);
+    expect(getAdminSummary().invitationCount).toBe(0);
+  });
+
+  it("rejects deletion of an unknown invitation", () => {
+    expect(() => deleteAdminInvitation("missing-code")).toThrow(InvitationNotFoundError);
   });
 
   it("filters invitations and RSVP states and reports summary totals", async () => {
