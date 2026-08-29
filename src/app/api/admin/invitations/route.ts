@@ -1,7 +1,13 @@
-import { adminInvitationCreateSchema, adminInvitationListSchema, adminInvitationUpdateSchema } from "@/lib/admin-validation";
+import {
+  adminInvitationCreateSchema,
+  adminInvitationDeleteSchema,
+  adminInvitationListSchema,
+  adminInvitationUpdateSchema,
+} from "@/lib/admin-validation";
 import { noStoreJson, rejectUnlessAdmin } from "@/lib/admin-route";
 import {
   createAdminInvitation,
+  deleteAdminInvitation,
   getAdminSummary,
   InvitationCodeConflictError,
   InvitationNotFoundError,
@@ -52,6 +58,20 @@ export async function PATCH(request: Request) {
   } catch (error) {
     if (error instanceof InvitationNotFoundError) return noStoreJson({ message: error.message }, { status: 404 });
     return noStoreJson({ message: "Không thể cập nhật thiệp mời." }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const rejected = rejectUnlessAdmin(request);
+  if (rejected) return rejected;
+  const body = await request.json().catch(() => null);
+  const parsed = adminInvitationDeleteSchema.safeParse(body);
+  if (!parsed.success) return noStoreJson({ message: "Thiệp mời cần xoá chưa hợp lệ." }, { status: 400 });
+  try {
+    return noStoreJson({ deleted: deleteAdminInvitation(parsed.data.code), summary: getAdminSummary() });
+  } catch (error) {
+    if (error instanceof InvitationNotFoundError) return noStoreJson({ message: error.message }, { status: 404 });
+    return noStoreJson({ message: "Không thể xoá thiệp mời." }, { status: 500 });
   }
 }
 
