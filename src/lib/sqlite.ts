@@ -1,7 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import { DatabaseSync, backup as nativeBackup } from "node:sqlite";
 
 type SqliteParameter = string | number | bigint | Uint8Array | null;
 type SqliteStatement = {
@@ -141,8 +140,9 @@ function openDatabase(databasePath: string): SqliteDatabase {
   } catch (error) {
     if (!(error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND")) throw error;
 
-    const nativeDatabase = new DatabaseSync(databasePath) as unknown as NativeDatabase;
-    return wrapNativeDatabase(nativeDatabase, (database, path) => nativeBackup(database as DatabaseSync, path));
+    const nativeSqlite = nodeRequire("node:sqlite") as NativeSqliteModule;
+    const nativeDatabase = new nativeSqlite.DatabaseSync(databasePath);
+    return wrapNativeDatabase(nativeDatabase, nativeSqlite.backup);
   }
 }
 
