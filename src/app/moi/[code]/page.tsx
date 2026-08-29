@@ -35,9 +35,10 @@ export default async function PersonalInvitationPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: SearchParams;
+  searchParams?: SearchParams;
 }) {
-  const [{ code }, query] = await Promise.all([params, searchParams]);
+  const { code } = await params;
+  const query = searchParams ? await searchParams : {};
   const previewTheme = Array.isArray(query.previewTheme) ? query.previewTheme[0] : query.previewTheme;
   const themeId = resolveAppearanceThemeId(previewTheme);
 
