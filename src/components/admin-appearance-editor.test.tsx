@@ -37,7 +37,7 @@ describe("AdminAppearanceEditor", () => {
     await user.click(screen.getByRole("button", { name: "Xem trước Midnight Gold" }));
 
     const frame = screen.getByTitle("Xem trước toàn bộ thiệp");
-    expect(frame).toHaveAttribute("src", expect.stringContaining("/moi/test-guest?previewTheme=midnight-gold"));
+    expect(frame.getAttribute("src")).toContain("/moi/test-guest?previewTheme=midnight-gold");
     expect(fetcher).not.toHaveBeenCalled();
   });
 
