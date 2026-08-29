@@ -43,6 +43,6 @@ describe("AdminAppearanceEditor", () => {
 
   it("surfaces a recoverable warning for a removed stored theme", () => {
     render(<AdminAppearanceEditor initialAppearance={{ themeId: "ivory-gold", invalidStoredThemeId: "removed-theme" }} />);
-    expect(screen.getByRole("status")).toHaveTextContent("removed-theme");
+    expect(screen.getByRole("alert")).toHaveTextContent("removed-theme");
   });
 });
