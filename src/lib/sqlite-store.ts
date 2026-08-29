@@ -32,6 +32,12 @@ export type AdminSummary = {
   confirmedGuestCount: number;
 };
 
+export type DeletedAdminInvitation = {
+  code: string;
+  name: string;
+  hadRsvp: boolean;
+};
+
 export class InvitationCodeConflictError extends Error {}
 export class InvitationNotFoundError extends Error {}
 
@@ -207,6 +213,36 @@ export function updateAdminInvitation(input: {
     );
 
   return listAdminInvitations(input.code).find((row) => row.code === input.code)!;
+}
+
+export function deleteAdminInvitation(code: string): DeletedAdminInvitation {
+  const connection = database();
+  const current = connection
+    .prepare(`
+      SELECT i.code, i.name, CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS had_rsvp
+      FROM invitations i
+      LEFT JOIN rsvps r ON r.invitation_code = i.code
+      WHERE i.code = ?
+    `)
+    .get(code) as { code: string; name: string; had_rsvp: number } | undefined;
+
+  if (!current) throw new InvitationNotFoundError("Không tìm thấy thiệp mời này.");
+
+  connection.exec("BEGIN IMMEDIATE");
+  try {
+    connection.prepare("DELETE FROM rsvps WHERE invitation_code = ?").run(code);
+    connection.prepare("DELETE FROM invitations WHERE code = ?").run(code);
+    connection.exec("COMMIT");
+  } catch (error) {
+    try {
+      connection.exec("ROLLBACK");
+    } catch {
+      // Preserve the original deletion error if rollback itself fails.
+    }
+    throw error;
+  }
+
+  return { code: current.code, name: current.name, hadRsvp: current.had_rsvp === 1 };
 }
 
 export function listAdminRsvps(filters: {
