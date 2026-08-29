@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getDatabase, closeDatabaseForTests } from "./sqlite";
-import { getAppearanceSettings, updateAppearanceSettings } from "./appearance-store";
+import { getAppearanceSettings, resolveAppearanceThemeId, updateAppearanceSettings } from "./appearance-store";
 
 let directory: string;
 
@@ -29,6 +29,13 @@ describe("appearance settings", () => {
   it("persists a known preset", () => {
     expect(updateAppearanceSettings({ themeId: "midnight-gold" })).toEqual({ themeId: "midnight-gold" });
     expect(getAppearanceSettings()).toEqual({ themeId: "midnight-gold" });
+  });
+
+  it("lets a known preview override win without persisting it", () => {
+    updateAppearanceSettings({ themeId: "sage-garden" });
+    expect(resolveAppearanceThemeId("blush-rose")).toBe("blush-rose");
+    expect(getAppearanceSettings()).toEqual({ themeId: "sage-garden" });
+    expect(resolveAppearanceThemeId("not-a-theme")).toBe("sage-garden");
   });
 
   it("falls back safely when a stored preset is no longer known", () => {
