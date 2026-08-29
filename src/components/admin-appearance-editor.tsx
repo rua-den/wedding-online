@@ -85,7 +85,7 @@ export function AdminAppearanceEditor({
       <a href={withPreviewTheme(previewUrl, pendingThemeId)} target="_blank" rel="noreferrer">Mở preview ↗</a>
     </header>
 
-    {initialAppearance.invalidStoredThemeId ? <p className={styles.warning} role="status">
+    {initialAppearance.invalidStoredThemeId ? <p className={styles.warning} role="alert">
       Theme đã lưu trước đây ({initialAppearance.invalidStoredThemeId}) không còn tồn tại. Hệ thống đang dùng Ivory Gold an toàn; hãy chọn và lưu lại một theme.
     </p> : null}
 
