@@ -9,6 +9,7 @@ import type { SiteSettings } from "@/lib/site-settings";
 import { AdminMediaPanel } from "./admin-media-panel";
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type InvitationFilter = "" | "active" | "disabled" | "responded" | "pending";
 
 type AdminDashboardProps = {
   summary: AdminSummary;
@@ -74,6 +75,8 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
   const [summary, setSummary] = useState<AdminSummary>(initialSummary ?? emptySummary);
   const [invitations, setInvitations] = useState(initialInvitations);
   const [rsvps, setRsvps] = useState(initialRsvps);
+  const [invitationQuery, setInvitationQuery] = useState("");
+  const [invitationFilter, setInvitationFilter] = useState<InvitationFilter>("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"" | "attending" | "declined" | "pending">("");
   const [name, setName] = useState("");
@@ -87,10 +90,17 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
   const [settingsForm, setSettingsForm] = useState<EditableSettings>(() => editableSettings(settings));
 
   const visibleInvitations = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
-    if (!normalized) return invitations;
-    return invitations.filter((invitation) => `${invitation.name} ${invitation.code}`.toLocaleLowerCase().includes(normalized));
-  }, [invitations, query]);
+    const normalized = invitationQuery.trim().toLocaleLowerCase();
+    return invitations.filter((invitation) => {
+      const matchesQuery = !normalized || `${invitation.name} ${invitation.code}`.toLocaleLowerCase().includes(normalized);
+      const matchesFilter = !invitationFilter
+        || (invitationFilter === "active" && invitation.active)
+        || (invitationFilter === "disabled" && !invitation.active)
+        || (invitationFilter === "responded" && invitation.attendance !== null)
+        || (invitationFilter === "pending" && invitation.attendance === null);
+      return matchesQuery && matchesFilter;
+    });
+  }, [invitationFilter, invitationQuery, invitations]);
 
   const visibleRsvps = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -160,6 +170,37 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
       setInvitations((current) => current.map((item) => item.code === invitation.code ? body.invitation : item));
       if (body.summary) setSummary(body.summary);
       setMessage(`${body.invitation.active ? "Đã bật" : "Đã tắt"} link mời cho ${body.invitation.name}`);
+    } catch {
+      setMessage("Không thể kết nối. Vui lòng thử lại.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteInvitation(invitation: AdminInvitation) {
+    const hasRsvp = invitation.attendance !== null || invitation.rsvpUpdatedAt !== null;
+    const warning = hasRsvp
+      ? `Xóa vĩnh viễn link của ${invitation.name}? Phản hồi RSVP của khách này cũng sẽ bị xóa.`
+      : `Xóa vĩnh viễn link của ${invitation.name}? Hành động này không thể hoàn tác.`;
+    if (!window.confirm(warning)) return;
+
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await request("/api/admin/invitations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: invitation.code }),
+      });
+      if (!response.ok) {
+        setMessage(await responseMessage(response, "Không thể xoá thiệp mời."));
+        return;
+      }
+      const body = (await response.json()) as { deleted: { code: string; name: string }; summary?: AdminSummary };
+      setInvitations((current) => current.filter((item) => item.code !== body.deleted.code));
+      setRsvps((current) => current.filter((item) => item.code !== body.deleted.code));
+      if (body.summary) setSummary(body.summary);
+      setMessage(`Đã xoá link mời của ${body.deleted.name}.`);
     } catch {
       setMessage("Không thể kết nối. Vui lòng thử lại.");
     } finally {
@@ -292,7 +333,11 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
       </section>
 
       <section className="admin-panel">
-        <div className="admin-panel-heading"><div><p className="eyebrow">Danh sách</p><h2>Thiệp mời</h2></div><input className="admin-search" aria-label="Tìm kiếm khách mời" placeholder="Tìm tên hoặc mã…" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+        <div className="admin-panel-heading"><div><p className="eyebrow">Danh sách</p><h2>Thiệp mời</h2><p>{visibleInvitations.length} / {invitations.length} link</p></div></div>
+        <div className="admin-filter-row">
+          <label>Tìm thiệp mời<input aria-label="Tìm thiệp mời" placeholder="Tìm tên hoặc mã…" value={invitationQuery} onChange={(event) => setInvitationQuery(event.target.value)} /></label>
+          <label>Lọc thiệp mời<select aria-label="Lọc thiệp mời" value={invitationFilter} onChange={(event) => setInvitationFilter(event.target.value as InvitationFilter)}><option value="">Tất cả</option><option value="active">Đang bật</option><option value="disabled">Đã tắt</option><option value="responded">Đã RSVP</option><option value="pending">Chưa RSVP</option></select></label>
+        </div>
         <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Khách mời</th><th>Mã</th><th>Link mời</th><th>Tối đa</th><th>RSVP</th><th>Trạng thái</th><th /></tr></thead><tbody>
           {visibleInvitations.map((invitation) => <tr key={invitation.code}>
             {editingCode === invitation.code ? <>
@@ -304,7 +349,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
               <td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td>
               <td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void saveInvitation(invitation.code)}>Lưu</button><button className="admin-text-button" type="button" disabled={busy} onClick={cancelEditing}>Hủy</button></div></td>
             </> : <>
-              <td>{invitation.name}</td><td><code>{invitation.code}</code></td><td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button><a className="admin-text-button" href={invitationUrl(siteUrl, invitation.code)} target="_blank" rel="noreferrer" aria-label={`Xem trước thiệp của ${invitation.name}`}>Xem trước</a></div></div></td><td>{invitation.maxGuests}</td><td>{invitation.guestCount ?? "—"}</td><td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td><td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => startEditing(invitation)}>Sửa</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void toggleInvitation(invitation)}>{invitation.active ? "Tắt link" : "Bật link"}</button></div></td>
+              <td>{invitation.name}</td><td><code>{invitation.code}</code></td><td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button><a className="admin-text-button" href={invitationUrl(siteUrl, invitation.code)} target="_blank" rel="noreferrer" aria-label={`Xem trước thiệp của ${invitation.name}`}>Xem trước</a></div></div></td><td>{invitation.maxGuests}</td><td>{invitation.guestCount ?? "—"}</td><td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td><td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => startEditing(invitation)}>Sửa</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void toggleInvitation(invitation)}>{invitation.active ? "Tắt link" : "Bật link"}</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void deleteInvitation(invitation)} aria-label={`Xóa link của ${invitation.name}`}>Xóa</button></div></td>
             </>}
           </tr>)}
         </tbody></table></div>
