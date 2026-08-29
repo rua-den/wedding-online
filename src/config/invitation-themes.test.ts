@@ -37,6 +37,9 @@ describe("invitation theme presets", () => {
       footerSurface: "#3e352c",
       actionSurface: "#3e352c",
       actionText: "#fff9ef",
+      galleryPlaceholder: "#eadcc5",
+      heroMediaText: "#fffaf0",
+      heroMediaAccent: "#f2d9a9",
     });
   });
 
@@ -48,6 +51,8 @@ describe("invitation theme presets", () => {
       [tokens.muted, tokens.paper],
       [tokens.inverseText, tokens.footerSurface],
       [tokens.actionText, tokens.actionSurface],
+      [tokens.successText, tokens.paper],
+      [tokens.errorText, tokens.paper],
     ] as const;
     for (const [foreground, background] of pairs) {
       expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
