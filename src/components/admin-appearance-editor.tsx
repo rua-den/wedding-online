@@ -29,11 +29,12 @@ export function AdminAppearanceEditor({
   const request = fetcher ?? fetch;
   const [persistedThemeId, setPersistedThemeId] = useState(initialAppearance.themeId);
   const [pendingThemeId, setPendingThemeId] = useState(initialAppearance.themeId);
+  const [invalidStoredThemeId, setInvalidStoredThemeId] = useState(initialAppearance.invalidStoredThemeId);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
-  const dirty = pendingThemeId !== persistedThemeId;
+  const dirty = Boolean(invalidStoredThemeId) || pendingThemeId !== persistedThemeId;
   const pendingPreviewUrl = useMemo(() => withPreviewTheme(previewUrl, pendingThemeId), [pendingThemeId, previewUrl]);
 
   function selectTheme(themeId: InvitationThemeId) {
@@ -66,6 +67,7 @@ export function AdminAppearanceEditor({
       const saved = body?.appearance?.themeId ?? pendingThemeId;
       setPersistedThemeId(saved);
       setPendingThemeId(saved);
+      setInvalidStoredThemeId(undefined);
       setMessage("Đã lưu giao diện thiệp.");
       setPreviewRefreshKey((current) => current + 1);
     } catch {
@@ -80,13 +82,13 @@ export function AdminAppearanceEditor({
       <div>
         <p>Appearance</p>
         <h1>Giao diện thiệp</h1>
-        <span>Theme áp dụng cho thiệp chung và toàn bộ link khách mời. Chọn thử trước, chỉ lưu khi mày bấm “Lưu giao diện”.</span>
+        <span>Theme áp dụng cho thiệp chung và toàn bộ link khách mời. Chọn thử trước; thay đổi chỉ được áp dụng sau khi bấm “Lưu giao diện”.</span>
       </div>
       <a href={withPreviewTheme(previewUrl, pendingThemeId)} target="_blank" rel="noreferrer">Mở preview ↗</a>
     </header>
 
-    {initialAppearance.invalidStoredThemeId ? <p className={styles.warning} role="alert">
-      Theme đã lưu trước đây ({initialAppearance.invalidStoredThemeId}) không còn tồn tại. Hệ thống đang dùng Ivory Gold an toàn; hãy chọn và lưu lại một theme.
+    {invalidStoredThemeId ? <p className={styles.warning} role="alert">
+      Theme đã lưu trước đây ({invalidStoredThemeId}) không còn tồn tại. Hệ thống đang dùng Ivory Gold an toàn; hãy lưu lại một theme hợp lệ.
     </p> : null}
 
     <section className={styles.grid} aria-label="Theme thiệp">
