@@ -1,4 +1,5 @@
 import { noStoreJson, rejectUnlessAdmin } from "@/lib/admin-route";
+import { pruneOrphanUploads } from "@/lib/media-prune";
 import { createUploadFilename, saveMediaFile } from "@/lib/media-upload";
 import { resolveUploadExtension } from "@/lib/media-validation";
 
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await pruneOrphanUploads().catch((error) => console.warn("Upload prune skipped before milestone upload:", error instanceof Error ? error.message : error));
     const extension = resolveUploadExtension(file.name, file.type);
     const saved = await saveMediaFile(file, createUploadFilename(file.name, extension));
     return noStoreJson({ src: saved.src }, { status: 201 });
