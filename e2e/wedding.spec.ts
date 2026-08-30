@@ -202,6 +202,30 @@ test("public gallery renders uploaded media and opens its lightbox", async ({ pa
   }
 });
 
+test("admin edits a love-story milestone with its own image", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/edit");
+  await page.getByRole("tab", { name: "Chuyện tình" }).click();
+
+  const milestone = page.locator("article").filter({ hasText: "Mốc 1" }).first();
+  await milestone.getByLabel("Tiêu đề").fill("Mốc có ảnh riêng");
+  await milestone.locator('input[type="file"]').setInputFiles({
+    name: "milestone.png",
+    mimeType: "image/png",
+    buffer: onePixelPng,
+  });
+  await expect(milestone.getByRole("img", { name: "Ảnh Mốc có ảnh riêng" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Lưu nội dung" }).click();
+  await expect(page.getByText("Đã lưu nội dung thiệp.")).toBeVisible();
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Mốc có ảnh riêng" })).toBeVisible();
+  const publicImage = page.getByRole("img", { name: "Ảnh mốc Mốc có ảnh riêng" });
+  await expect(publicImage).toBeVisible();
+  await expectImageBytesLoad(page, publicImage);
+});
+
 test("personalised preview keeps the validated guest name visible", async ({ page }) => {
   await page.goto("/moi/demo");
   await expect(page.getByRole("heading", { name: "Khách mời thân yêu" })).toBeVisible();
