@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
 import { RsvpForm } from "./rsvp-form";
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("RsvpForm", () => {
   it("submits an attending RSVP for the invitation limit and confirms success", async () => {
