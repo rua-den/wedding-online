@@ -47,12 +47,8 @@ async function activeMedia(page: Page, slot: string) {
 async function cleanupUploadedMedia(page: Page, alt: string, displaced?: MediaAssetSnapshot) {
   await deleteMediaByAlt(page, alt);
   if (displaced?.active) {
-    const response = await page.request.patch("/api/admin/media", {
-      data: { id: displaced.id, active: true },
-    });
-    if (!response.ok()) {
-      throw new Error(`Could not restore displaced ${displaced.slot} asset ${displaced.id}.`);
-    }
+    const response = await page.request.patch("/api/admin/media", { data: { id: displaced.id, active: true } });
+    if (!response.ok()) throw new Error(`Could not restore displaced ${displaced.slot} asset ${displaced.id}.`);
   }
 }
 
@@ -184,7 +180,6 @@ test("temporary hero replacement cleanup restores the displaced active asset", a
 
 test("public gallery renders uploaded media and opens its lightbox", async ({ page }) => {
   const alt = mediaAlt("gallery", "gallery");
-
   try {
     await login(page);
     await uploadMedia(page, "gallery", "gallery");
@@ -202,19 +197,22 @@ test("public gallery renders uploaded media and opens its lightbox", async ({ pa
   }
 });
 
-test("admin edits a love-story milestone with its own image", async ({ page }) => {
+test("admin edits and crops a love-story milestone image", async ({ page }) => {
   await login(page);
   await page.goto("/admin/edit");
   await page.getByRole("tab", { name: "Chuyện tình" }).click();
 
   const milestone = page.locator("article").filter({ hasText: "Mốc 1" }).first();
   await milestone.getByLabel("Tiêu đề").fill("Mốc có ảnh riêng");
-  await milestone.locator('input[type="file"]').setInputFiles({
-    name: "milestone.png",
-    mimeType: "image/png",
-    buffer: onePixelPng,
-  });
+  await milestone.locator('input[type="file"]').setInputFiles({ name: "milestone.png", mimeType: "image/png", buffer: onePixelPng });
   await expect(milestone.getByRole("img", { name: "Ảnh Mốc có ảnh riêng" })).toBeVisible();
+  await milestone.getByRole("button", { name: "Chỉnh khung ảnh" }).click();
+  await expect(page.getByRole("dialog", { name: /Ảnh Mốc có ảnh riêng/ })).toBeVisible();
+  await setCropValue(page, "Ngang", 23);
+  await setCropValue(page, "Dọc", 68);
+  await setCropValue(page, "Thu phóng", 1.5);
+  await page.getByRole("button", { name: "Lưu căn chỉnh" }).click();
+  await expect(page.getByText(/Đã căn khung ảnh mốc 1/)).toBeVisible();
 
   await page.getByRole("button", { name: "Lưu nội dung" }).click();
   await expect(page.getByText("Đã lưu nội dung thiệp.")).toBeVisible();
@@ -224,6 +222,43 @@ test("admin edits a love-story milestone with its own image", async ({ page }) =
   const publicImage = page.getByRole("img", { name: "Ảnh mốc Mốc có ảnh riêng" });
   await expect(publicImage).toBeVisible();
   await expectImageBytesLoad(page, publicImage);
+  await expect.poll(() => publicImage.evaluate((image) => getComputedStyle(image).objectPosition)).toBe("23% 68%");
+  expect(await publicImage.evaluate((image) => (image as HTMLElement).style.transform)).toBe("scale(1.5)");
+});
+
+test("appearance admin exposes independent music management", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/appearance");
+  await expect(page.getByRole("heading", { name: "Nhạc nền" })).toBeVisible();
+  await expect(page.getByText(/MP3|Chưa có nhạc/).first()).toBeVisible();
+});
+
+for (const path of ["/", "/moi/demo"]) {
+  test(`public invitation scroll smoke stays stable on mobile: ${path}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(path);
+    if (path.includes("/moi/")) await expect(page.getByRole("heading", { name: "Khách mời thân yêu" })).toBeVisible();
+    else await expect(page.locator("#invitation-title")).toBeVisible();
+
+    for (let index = 0; index < 10; index += 1) {
+      await page.mouse.wheel(0, 620);
+      await page.waitForTimeout(20);
+    }
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("public invitation remains usable with reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await expect(page.locator("#invitation-title")).toBeVisible();
+  const transitionDuration = await page.locator(".scroll-cue span").evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(["0s", "0.00001s"]).toContain(transitionDuration);
 });
 
 test("personalised preview keeps the validated guest name visible", async ({ page }) => {
