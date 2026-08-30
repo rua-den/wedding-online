@@ -1,4 +1,4 @@
-export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 3;
+export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 4;
 
 export class FutureInvitationContentVersionError extends Error {
   constructor(public readonly storedVersion: number) {
@@ -17,17 +17,7 @@ function migrateV1ToV2(input: unknown): unknown {
   if (!isRecord(input)) return input;
   const story = input.story;
   if (!isRecord(story) || !Array.isArray(story.milestones)) return input;
-
-  return {
-    ...input,
-    story: {
-      ...story,
-      milestones: story.milestones.map((milestone) => {
-        if (!isRecord(milestone) || "imageSrc" in milestone) return milestone;
-        return { ...milestone, imageSrc: null };
-      }),
-    },
-  };
+  return { ...input, story: { ...story, milestones: story.milestones.map((milestone) => !isRecord(milestone) || "imageSrc" in milestone ? milestone : { ...milestone, imageSrc: null }) } };
 }
 
 function migrateV2ToV3(input: unknown): unknown {
@@ -37,15 +27,9 @@ function migrateV2ToV3(input: unknown): unknown {
   const couple = isRecord(input.couple) ? input.couple : {};
   const groom = typeof couple.shortGroomName === "string" ? couple.shortGroomName : "Huy";
   const bride = typeof couple.shortBrideName === "string" ? couple.shortBrideName : "Nhi";
-
   return {
     ...input,
-    event: {
-      ...event,
-      timeHeading: event.timeHeading ?? "Thời gian",
-      venueHeading: event.venueHeading ?? "Địa điểm",
-      directionsLabel: event.directionsLabel ?? "Xem chỉ đường",
-    },
+    event: { ...event, timeHeading: event.timeHeading ?? "Thời gian", venueHeading: event.venueHeading ?? "Địa điểm", directionsLabel: event.directionsLabel ?? "Xem chỉ đường" },
     rsvp: {
       ...rsvp,
       greetingPrefix: rsvp.greetingPrefix ?? "Thân mời",
@@ -64,22 +48,29 @@ function migrateV2ToV3(input: unknown): unknown {
   };
 }
 
-const migrations: Record<number, (input: unknown) => unknown> = {
-  1: migrateV1ToV2,
-  2: migrateV2ToV3,
-};
+function migrateV3ToV4(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  const story = input.story;
+  if (!isRecord(story) || !Array.isArray(story.milestones)) return input;
+  return {
+    ...input,
+    story: {
+      ...story,
+      milestones: story.milestones.map((milestone) => isRecord(milestone) ? {
+        ...milestone,
+        imageFocusX: milestone.imageFocusX ?? 50,
+        imageFocusY: milestone.imageFocusY ?? 50,
+        imageZoom: milestone.imageZoom ?? 1,
+      } : milestone),
+    },
+  };
+}
 
-export function migrateInvitationContent(
-  input: unknown,
-  storedVersion: number,
-): { content: unknown; version: number } {
-  if (!Number.isInteger(storedVersion) || storedVersion < 1) {
-    throw new Error("Invitation content schema version is invalid.");
-  }
-  if (storedVersion > CURRENT_INVITATION_CONTENT_SCHEMA_VERSION) {
-    throw new FutureInvitationContentVersionError(storedVersion);
-  }
+const migrations: Record<number, (input: unknown) => unknown> = { 1: migrateV1ToV2, 2: migrateV2ToV3, 3: migrateV3ToV4 };
 
+export function migrateInvitationContent(input: unknown, storedVersion: number): { content: unknown; version: number } {
+  if (!Number.isInteger(storedVersion) || storedVersion < 1) throw new Error("Invitation content schema version is invalid.");
+  if (storedVersion > CURRENT_INVITATION_CONTENT_SCHEMA_VERSION) throw new FutureInvitationContentVersionError(storedVersion);
   let content = input;
   let version = storedVersion;
   while (version < CURRENT_INVITATION_CONTENT_SCHEMA_VERSION) {
@@ -88,6 +79,5 @@ export function migrateInvitationContent(
     content = migrate(content);
     version += 1;
   }
-
   return { content, version };
 }
