@@ -1,4 +1,4 @@
-export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 2;
+export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 3;
 
 export class FutureInvitationContentVersionError extends Error {
   constructor(public readonly storedVersion: number) {
@@ -30,8 +30,43 @@ function migrateV1ToV2(input: unknown): unknown {
   };
 }
 
+function migrateV2ToV3(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  const event = isRecord(input.event) ? input.event : {};
+  const rsvp = isRecord(input.rsvp) ? input.rsvp : {};
+  const couple = isRecord(input.couple) ? input.couple : {};
+  const groom = typeof couple.shortGroomName === "string" ? couple.shortGroomName : "Huy";
+  const bride = typeof couple.shortBrideName === "string" ? couple.shortBrideName : "Nhi";
+
+  return {
+    ...input,
+    event: {
+      ...event,
+      timeHeading: event.timeHeading ?? "Thời gian",
+      venueHeading: event.venueHeading ?? "Địa điểm",
+      directionsLabel: event.directionsLabel ?? "Xem chỉ đường",
+    },
+    rsvp: {
+      ...rsvp,
+      greetingPrefix: rsvp.greetingPrefix ?? "Thân mời",
+      attendanceQuestion: rsvp.attendanceQuestion ?? "Bạn có thể tham dự cùng chúng mình không?",
+      attendingLabel: rsvp.attendingLabel ?? "Sẽ tham dự",
+      declinedLabel: rsvp.declinedLabel ?? "Rất tiếc, không thể tham dự",
+      guestCountLabel: rsvp.guestCountLabel ?? "Số người tham dự",
+      guestCountSuffix: rsvp.guestCountSuffix ?? "người",
+      messageLabel: rsvp.messageLabel ?? "Lời nhắn",
+      messagePlaceholder: rsvp.messagePlaceholder ?? `Gửi lời chúc tới ${groom} & ${bride}`,
+      submitLabel: rsvp.submitLabel ?? "Gửi xác nhận",
+      submittingLabel: rsvp.submittingLabel ?? "Đang gửi...",
+      closedMessage: rsvp.closedMessage ?? "Đã hết hạn xác nhận tham dự.",
+      successMessage: rsvp.successMessage ?? "Cảm ơn bạn đã xác nhận tham dự!",
+    },
+  };
+}
+
 const migrations: Record<number, (input: unknown) => unknown> = {
   1: migrateV1ToV2,
+  2: migrateV2ToV3,
 };
 
 export function migrateInvitationContent(
