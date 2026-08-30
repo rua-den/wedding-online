@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { OPEN_INVITATION_EVENT } from "@/lib/invitation-events";
 import type { MusicSettings } from "@/lib/music-store";
 
 export function MusicPlayer({ settings }: { settings: MusicSettings }) {
@@ -15,21 +14,26 @@ export function MusicPlayer({ settings }: { settings: MusicSettings }) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const play = async () => {
+    let cancelled = false;
+    const tryPlay = async () => {
       try {
         await audio.play();
-        setPlaying(true);
+        if (!cancelled) setPlaying(true);
       } catch {
-        // Audible autoplay may be blocked by browser policy. The "Mở thiệp"
-        // user gesture dispatches OPEN_INVITATION_EVENT and retries playback.
-        setPlaying(false);
+        if (!cancelled) setPlaying(false);
       }
     };
 
-    void play();
-    const resume = () => { void play(); };
-    window.addEventListener(OPEN_INVITATION_EVENT, resume);
-    return () => window.removeEventListener(OPEN_INVITATION_EVENT, resume);
+    void tryPlay();
+    const retryWhenReady = () => { void tryPlay(); };
+    audio.addEventListener("canplay", retryWhenReady, { once: true });
+    audio.addEventListener("loadeddata", retryWhenReady, { once: true });
+
+    return () => {
+      cancelled = true;
+      audio.removeEventListener("canplay", retryWhenReady);
+      audio.removeEventListener("loadeddata", retryWhenReady);
+    };
   }, [settings.enabled, settings.src]);
 
   if (!settings.enabled || !settings.src || failed) return null;
@@ -58,6 +62,7 @@ export function MusicPlayer({ settings }: { settings: MusicSettings }) {
       loop={settings.loop}
       preload="auto"
       autoPlay
+      playsInline
       onPause={() => setPlaying(false)}
       onPlay={() => setPlaying(true)}
       onEnded={() => setPlaying(false)}
