@@ -156,6 +156,9 @@ jobs:
             echo '<table><tr><th>Home · Mobile</th><th>Home · Desktop</th></tr><tr>'
             echo "<td><a href=\"${RAW_BASE}/home-mobile.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/home-mobile.png?${RUN_QUERY}\" width=\"300\" alt=\"Home mobile preview\"></a></td>"
             echo "<td><a href=\"${RAW_BASE}/home-desktop.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/home-desktop.png?${RUN_QUERY}\" width=\"480\" alt=\"Home desktop preview\"></a></td>"
+            echo '</tr><tr><th>Countdown · Mobile</th><th>Countdown · Desktop</th></tr><tr>'
+            echo "<td><a href=\"${RAW_BASE}/countdown-mobile.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/countdown-mobile.png?${RUN_QUERY}\" width=\"300\" alt=\"Countdown mobile preview\"></a></td>"
+            echo "<td><a href=\"${RAW_BASE}/countdown-desktop.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/countdown-desktop.png?${RUN_QUERY}\" width=\"480\" alt=\"Countdown desktop preview\"></a></td>"
             echo '</tr><tr><th>Guest cover · Mobile</th><th>Guest opened · Mobile</th></tr><tr>'
             echo "<td><a href=\"${RAW_BASE}/personal-cover-mobile.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/personal-cover-mobile.png?${RUN_QUERY}\" width=\"300\" alt=\"Personal cover mobile preview\"></a></td>"
             echo "<td><a href=\"${RAW_BASE}/personal-open-mobile.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/personal-open-mobile.png?${RUN_QUERY}\" width=\"300\" alt=\"Personal invitation opened mobile preview\"></a></td>"
