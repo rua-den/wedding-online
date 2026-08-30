@@ -12,7 +12,7 @@ export function OpenInvitationButton({ label, targetId }: { label: string; targe
   }
 
   return <button type="button" className="open-invitation-button scroll-cue" onClick={openInvitation}>
-    <span>{label}</span>
+    {label}
     <span aria-hidden="true" className="open-invitation-arrow">↓</span>
   </button>;
 }
