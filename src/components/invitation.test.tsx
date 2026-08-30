@@ -25,4 +25,20 @@ describe("Invitation", () => {
     expect(screen.getByText("18:00")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Xem chỉ đường/ })).toHaveAttribute("href", content.event.mapsUrl);
   });
+
+  it("renders an uploaded image on its matching love-story milestone", () => {
+    const content = defaultInvitationContent();
+    content.story.milestones[0] = {
+      ...content.story.milestones[0],
+      title: "Ngày đầu gặp nhau",
+      imageSrc: "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png",
+    };
+
+    render(<Invitation content={content} />);
+
+    expect(screen.getByRole("img", { name: "Ảnh mốc Ngày đầu gặp nhau" })).toHaveAttribute(
+      "src",
+      "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png",
+    );
+  });
 });
