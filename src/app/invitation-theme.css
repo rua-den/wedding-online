@@ -1,102 +1,81 @@
 .invitation-theme-scope {
   background: var(--invitation-canvas);
-  box-shadow: 0 0 0 100vmax var(--invitation-canvas);
   color: var(--invitation-ink);
   font-family: var(--invitation-font-display, Georgia, "Times New Roman", serif);
   min-height: 100svh;
+  overflow-x: clip;
 }
 
-.invitation-theme-scope :focus-visible {
-  outline: 2px solid var(--invitation-focus-ring);
-  outline-offset: 3px;
+/* Keep below-fold sections out of initial layout/paint work without containing the
+   gallery, whose lightbox has fixed-position descendants. */
+.invitation-theme-scope .countdown-section,
+.invitation-theme-scope .couple-section,
+.invitation-theme-scope .story-section,
+.invitation-theme-scope .event-section,
+.invitation-theme-scope .rsvp-section,
+.invitation-theme-scope .site-footer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
 }
 
-.invitation-theme-scope .hero {
-  background: radial-gradient(circle at 50% 28%, var(--invitation-hero-start) 0, var(--invitation-hero-mid) 49%, var(--invitation-hero-end) 100%);
-  color: var(--invitation-hero-text);
-}
+.invitation-theme-scope :focus-visible { outline: 2px solid var(--invitation-focus-ring); outline-offset: 3px; }
+.invitation-theme-scope .hero { background: radial-gradient(circle at 50% 28%, var(--invitation-hero-start) 0, var(--invitation-hero-mid) 49%, var(--invitation-hero-end) 100%); color: var(--invitation-hero-text); }
 .invitation-theme-scope .hero.has-hero-media .hero-frame { background: var(--invitation-hero-overlay); }
 .invitation-theme-scope .hero-frame { border-color: var(--invitation-border-strong); }
 .invitation-theme-scope .hero-ornament { border-color: var(--invitation-hero-ornament); }
-
 .invitation-theme-scope .countdown-section,
 .invitation-theme-scope .story-section,
 .invitation-theme-scope .gallery-section,
 .invitation-theme-scope .rsvp-section { background: var(--invitation-paper); }
-
 .invitation-theme-scope .couple-section,
 .invitation-theme-scope .personal-cover { background: var(--invitation-alternate); }
-
 .invitation-theme-scope .event-section { background: var(--invitation-event-surface); }
 .invitation-theme-scope .event-card,
 .invitation-theme-scope .rsvp-card { border-color: var(--invitation-border-strong); }
 .invitation-theme-scope .event-details { border-color: var(--invitation-border-strong); }
 .invitation-theme-scope .event-details > div + div { border-color: var(--invitation-border-medium); }
-
-.invitation-theme-scope .portrait {
-  background: linear-gradient(140deg, var(--invitation-groom-start), var(--invitation-groom-end));
-  box-shadow: inset 0 0 0 8px var(--invitation-portrait-inset);
-}
+.invitation-theme-scope .portrait { background: linear-gradient(140deg, var(--invitation-groom-start), var(--invitation-groom-end)); box-shadow: inset 0 0 0 8px var(--invitation-portrait-inset); }
 .invitation-theme-scope .portrait-bride { background: linear-gradient(140deg, var(--invitation-bride-start), var(--invitation-bride-end)); }
 .invitation-theme-scope .portrait::before,
 .invitation-theme-scope .portrait::after { border-color: var(--invitation-portrait-line); }
 .invitation-theme-scope .portrait span { color: var(--invitation-portrait-symbol); }
-
 .invitation-theme-scope .timeline-marker { background: var(--invitation-paper); }
-.invitation-theme-scope .site-footer {
-  background: var(--invitation-footer-surface);
-  color: var(--invitation-inverse-text);
-}
+.invitation-theme-scope .site-footer { background: var(--invitation-footer-surface); color: var(--invitation-inverse-text); }
 .invitation-theme-scope .site-footer small { color: var(--invitation-footer-muted); }
-
 .invitation-theme-scope .rsvp-form select,
-.invitation-theme-scope .rsvp-form textarea {
-  background: var(--invitation-input-surface);
-  border-color: var(--invitation-input-border);
-  color: var(--invitation-ink);
-}
-.invitation-theme-scope .rsvp-form button {
-  background: var(--invitation-action-surface);
-  color: var(--invitation-action-text);
-}
+.invitation-theme-scope .rsvp-form textarea { background: var(--invitation-input-surface); border-color: var(--invitation-input-border); color: var(--invitation-ink); }
+.invitation-theme-scope .rsvp-form button { background: var(--invitation-action-surface); color: var(--invitation-action-text); }
 .invitation-theme-scope .map-link { color: var(--invitation-ink); }
 .invitation-theme-scope .guest-state { background: var(--invitation-canvas); color: var(--invitation-ink); }
 .invitation-theme-scope .form-status-success { color: var(--invitation-success-text); }
 .invitation-theme-scope .form-status-error { color: var(--invitation-error-text); }
-
 .invitation-theme-scope .gallery-item { background: var(--invitation-gallery-placeholder); }
 .invitation-theme-scope .gallery-lightbox { background: var(--invitation-lightbox-surface); }
 .invitation-theme-scope .gallery-close,
 .invitation-theme-scope .gallery-arrow,
 .invitation-theme-scope .gallery-count { color: var(--invitation-lightbox-text); }
-
-.invitation-theme-scope .media-frame-fallback {
-  background: linear-gradient(140deg, var(--invitation-media-fallback-start), var(--invitation-media-fallback-end));
-  color: var(--invitation-media-fallback-text);
-}
-.invitation-theme-scope .media-frame-fallback-hero {
-  background: radial-gradient(circle at 50% 28%, var(--invitation-hero-start) 0, var(--invitation-hero-mid) 49%, var(--invitation-hero-end) 100%);
-}
-.invitation-theme-scope .media-frame-fallback-portrait {
-  background: linear-gradient(140deg, var(--invitation-groom-start), var(--invitation-groom-end));
-}
-.invitation-theme-scope .media-frame-fallback-story {
-  background: linear-gradient(140deg, var(--invitation-story-fallback-start), var(--invitation-story-fallback-end));
-}
-.invitation-theme-scope .media-frame-fallback-venue {
-  background: linear-gradient(140deg, var(--invitation-venue-fallback-start), var(--invitation-venue-fallback-end));
-}
-.invitation-theme-scope .media-frame-fallback-gallery {
-  background: linear-gradient(140deg, var(--invitation-gallery-fallback-start), var(--invitation-gallery-fallback-end));
-}
-
+.invitation-theme-scope .media-frame-fallback { background: linear-gradient(140deg, var(--invitation-media-fallback-start), var(--invitation-media-fallback-end)); color: var(--invitation-media-fallback-text); }
+.invitation-theme-scope .media-frame-fallback-hero { background: radial-gradient(circle at 50% 28%, var(--invitation-hero-start) 0, var(--invitation-hero-mid) 49%, var(--invitation-hero-end) 100%); }
+.invitation-theme-scope .media-frame-fallback-portrait { background: linear-gradient(140deg, var(--invitation-groom-start), var(--invitation-groom-end)); }
+.invitation-theme-scope .media-frame-fallback-story { background: linear-gradient(140deg, var(--invitation-story-fallback-start), var(--invitation-story-fallback-end)); }
+.invitation-theme-scope .media-frame-fallback-venue { background: linear-gradient(140deg, var(--invitation-venue-fallback-start), var(--invitation-venue-fallback-end)); }
+.invitation-theme-scope .media-frame-fallback-gallery { background: linear-gradient(140deg, var(--invitation-gallery-fallback-start), var(--invitation-gallery-fallback-end)); }
 .invitation-theme-scope .hero.has-hero-media { color: var(--invitation-hero-media-text); }
-.invitation-theme-scope .hero-media::after {
-  background: linear-gradient(180deg, var(--invitation-hero-media-overlay-start), var(--invitation-hero-media-overlay-end));
-}
+.invitation-theme-scope .hero-media::after { background: linear-gradient(180deg, var(--invitation-hero-media-overlay-start), var(--invitation-hero-media-overlay-end)); }
 .invitation-theme-scope .hero.has-hero-media .eyebrow,
 .invitation-theme-scope .hero.has-hero-media .hero-message,
 .invitation-theme-scope .hero.has-hero-media .scroll-cue { color: var(--invitation-hero-media-text); }
 .invitation-theme-scope .hero.has-hero-media .hero-date > span,
 .invitation-theme-scope .hero.has-hero-media h1 em { color: var(--invitation-hero-media-accent); }
 .invitation-theme-scope .hero.has-hero-media .hero-date div { border-color: var(--invitation-hero-media-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .invitation-theme-scope *,
+  .invitation-theme-scope *::before,
+  .invitation-theme-scope *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
