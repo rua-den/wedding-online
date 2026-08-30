@@ -50,11 +50,14 @@ describe("AdminAppearanceEditor", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("shows Vietnamese sample text for wedding fonts", () => {
+  it("shows Vietnamese sample text for the extended wedding font set", () => {
     render(<AdminAppearanceEditor initialAppearance={{ themeId: "ivory-gold", fontId: "classic-serif" }} fetcher={vi.fn()} />);
-    expect(screen.getAllByText(/Ước hẹn ngày cưới/)).toHaveLength(5);
+    expect(screen.getAllByText(/Ước hẹn ngày cưới/)).toHaveLength(11);
     expect(screen.getByRole("radio", { name: /Playfair Display/ })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Noto Serif Display/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Spectral/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Source Serif 4/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Crimson Pro/ })).toBeInTheDocument();
   });
 
   it("lets an admin repair removed stored appearance presets by saving fallbacks", async () => {
