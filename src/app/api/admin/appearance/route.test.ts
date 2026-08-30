@@ -33,20 +33,31 @@ afterEach(() => {
 describe("/api/admin/appearance", () => {
   it("rejects unauthenticated reads and writes", async () => {
     expect((await GET(request({}, false))).status).toBe(401);
-    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "sage-garden" }) }, false))).status).toBe(401);
+    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "sage-garden", fontId: "lora" }) }, false))).status).toBe(401);
   });
 
-  it("returns the default and persists a known preset", async () => {
-    await expect((await GET(request())).json()).resolves.toMatchObject({ appearance: { themeId: "ivory-gold" } });
+  it("returns defaults and persists theme plus font", async () => {
+    await expect((await GET(request())).json()).resolves.toMatchObject({
+      appearance: { themeId: "ivory-gold", fontId: "classic-serif" },
+    });
 
-    const saved = await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "sage-garden" }) }));
+    const saved = await PUT(request({
+      method: "PUT",
+      body: JSON.stringify({ themeId: "sage-garden", fontId: "cormorant-garamond" }),
+    }));
     expect(saved.status).toBe(200);
-    await expect(saved.json()).resolves.toMatchObject({ appearance: { themeId: "sage-garden" } });
-    await expect((await GET(request())).json()).resolves.toMatchObject({ appearance: { themeId: "sage-garden" } });
+    await expect(saved.json()).resolves.toMatchObject({
+      appearance: { themeId: "sage-garden", fontId: "cormorant-garamond" },
+    });
+    await expect((await GET(request())).json()).resolves.toMatchObject({
+      appearance: { themeId: "sage-garden", fontId: "cormorant-garamond" },
+    });
   });
 
-  it("rejects unknown themes and extra fields", async () => {
-    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "rainbow" }) }))).status).toBe(400);
-    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "ivory-gold", css: "*{}" }) }))).status).toBe(400);
+  it("rejects unknown presets, missing fields and extra fields", async () => {
+    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "rainbow", fontId: "lora" }) }))).status).toBe(400);
+    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "ivory-gold", fontId: "comic-sans" }) }))).status).toBe(400);
+    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "ivory-gold" }) }))).status).toBe(400);
+    expect((await PUT(request({ method: "PUT", body: JSON.stringify({ themeId: "ivory-gold", fontId: "lora", css: "*{}" }) }))).status).toBe(400);
   });
 });
