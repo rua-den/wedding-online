@@ -27,7 +27,15 @@ for (const viewport of [
 
     await hero.locator(".open-invitation-button").click();
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-    await expect(page.locator("#ngay-chung-doi")).toBeInViewport();
+    const countdownSection = page.locator("#ngay-chung-doi");
+    await expect(countdownSection).toBeInViewport();
+
+    const countdownValues = countdownSection.locator(".countdown-part strong");
+    await expect(countdownValues).toHaveCount(4);
+    const values = await countdownValues.allTextContents();
+    expect(values.join("")).not.toBe("00000000");
+    expect(values.join(" ")).not.toContain("NaN");
+    await page.screenshot({ path: `visual-previews/countdown-${viewport.name}.png`, fullPage: false });
   });
 }
 
