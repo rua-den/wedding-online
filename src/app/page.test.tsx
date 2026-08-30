@@ -26,20 +26,25 @@ afterEach(() => {
 describe("home page settings", () => {
   it("passes persisted content and appearance to the invitation", async () => {
     updateSiteSettings({ venue: "Sảnh Hoa", mapsUrl: "https://maps.google.com/?q=Sanh+Hoa" });
-    updateAppearanceSettings({ themeId: "sage-garden" });
+    updateAppearanceSettings({ themeId: "sage-garden", fontId: "lora" });
 
     const page = await Home({ searchParams: Promise.resolve({}) });
     expect(page.props.themeId).toBe("sage-garden");
+    expect(page.props.fontId).toBe("lora");
     expect(page.props.children.props.content.event.venue).toBe("Sảnh Hoa");
   });
 
-  it("uses a valid preview theme without changing persisted appearance", async () => {
-    updateAppearanceSettings({ themeId: "sage-garden" });
+  it("uses valid preview appearance without changing persisted settings", async () => {
+    updateAppearanceSettings({ themeId: "sage-garden", fontId: "lora" });
 
-    const page = await Home({ searchParams: Promise.resolve({ previewTheme: "midnight-gold" }) });
+    const page = await Home({
+      searchParams: Promise.resolve({ previewTheme: "midnight-gold", previewFont: "playfair-display" }),
+    });
     expect(page.props.themeId).toBe("midnight-gold");
+    expect(page.props.fontId).toBe("playfair-display");
 
     const persistedPage = await Home({ searchParams: Promise.resolve({}) });
     expect(persistedPage.props.themeId).toBe("sage-garden");
+    expect(persistedPage.props.fontId).toBe("lora");
   });
 });
