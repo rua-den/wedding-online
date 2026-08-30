@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./invitation-theme.css";
 import "./mobile-fixes.css";
+import "./story-milestones.css";
 
 export const metadata: Metadata = {
   title: "Huy & Nhi | Thiệp mời lễ thành hôn",
