@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import type { InvitationContent, LoveStoryMilestoneContent } from "@/types/invitation-content";
 import styles from "./admin-content-editor.module.css";
@@ -23,6 +24,7 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
   const [active, setActive] = useState<Tab>("couple");
   const [form, setForm] = useState(initialContent);
   const [busy, setBusy] = useState(false);
+  const [uploadingMilestone, setUploadingMilestone] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -47,8 +49,29 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
     setForm((current) => ({ ...current, story: { ...current.story, milestones: current.story.milestones.map((item, i) => i === index ? { ...item, ...patch } : item) } }));
   }
 
+  async function uploadMilestoneImage(index: number, file: File) {
+    setUploadingMilestone(index);
+    setMessage("");
+    try {
+      const data = new FormData();
+      data.set("file", file);
+      const response = await request("/api/admin/content/image", { method: "POST", body: data });
+      const body = await response.json().catch(() => null) as { src?: string; message?: string } | null;
+      if (!response.ok || !body?.src) {
+        setMessage(body?.message ?? "Không thể tải ảnh mốc lên.");
+        return;
+      }
+      updateMilestone(index, { imageSrc: body.src });
+      setMessage(`Đã tải ảnh cho mốc ${index + 1}. Bấm “Lưu nội dung” để áp dụng.`);
+    } catch {
+      setMessage("Không thể kết nối để tải ảnh mốc.");
+    } finally {
+      setUploadingMilestone(null);
+    }
+  }
+
   function addMilestone() {
-    setForm((current) => ({ ...current, story: { ...current.story, milestones: [...current.story.milestones, { date: "Mốc mới", title: "Tiêu đề mới", description: "Nội dung câu chuyện..." }] } }));
+    setForm((current) => ({ ...current, story: { ...current.story, milestones: [...current.story.milestones, { date: "Mốc mới", title: "Tiêu đề mới", description: "Nội dung câu chuyện...", imageSrc: null }] } }));
   }
 
   function removeMilestone(index: number) {
@@ -100,12 +123,22 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
       {active === "story" ? <div>
         <div className={styles.grid}>{field("Eyebrow", form.story.eyebrow, (value) => setForm((c) => ({ ...c, story: { ...c.story, eyebrow: value } })))}{field("Tiêu đề", form.story.title, (value) => setForm((c) => ({ ...c, story: { ...c.story, title: value } })))}</div>
         <div className={styles.storyList}>{form.story.milestones.map((item, index) => <article className={styles.storyItem} key={index}>
-          <div className={styles.storyHead}><strong>Mốc {index + 1}</strong><button type="button" onClick={() => removeMilestone(index)} disabled={form.story.milestones.length <= 1}>Xóa</button></div>
+          <div className={styles.storyHead}><strong>Mốc {index + 1}</strong><button type="button" onClick={() => removeMilestone(index)} disabled={form.story.milestones.length <= 1 || uploadingMilestone === index}>Xóa</button></div>
+          <div className={styles.storyImageEditor}>
+            <div className={styles.storyImagePreview}>
+              {item.imageSrc ? <Image src={item.imageSrc} alt={`Ảnh ${item.title}`} width={720} height={450} unoptimized /> : <span>Chưa có ảnh cho mốc này</span>}
+            </div>
+            <div className={styles.storyImageActions}>
+              <label className={styles.secondary}>{uploadingMilestone === index ? "Đang tải…" : item.imageSrc ? "Thay ảnh" : "Tải ảnh"}<input hidden type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={busy || uploadingMilestone !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMilestoneImage(index, file); event.currentTarget.value = ""; }} /></label>
+              {item.imageSrc ? <button className={styles.secondary} type="button" disabled={busy || uploadingMilestone !== null} onClick={() => updateMilestone(index, { imageSrc: null })}>Gỡ ảnh</button> : null}
+              <small>JPG, PNG, WebP, AVIF hoặc GIF · tối đa 12 MB.</small>
+            </div>
+          </div>
           {field("Thời gian", item.date, (value) => updateMilestone(index, { date: value }))}
           {field("Tiêu đề", item.title, (value) => updateMilestone(index, { title: value }))}
           {field("Nội dung", item.description, (value) => updateMilestone(index, { description: value }), { multiline: true })}
         </article>)}</div>
-        <button className={styles.secondary} type="button" onClick={addMilestone} disabled={form.story.milestones.length >= 12}>+ Thêm mốc</button>
+        <button className={styles.secondary} type="button" onClick={addMilestone} disabled={form.story.milestones.length >= 12 || uploadingMilestone !== null}>+ Thêm mốc</button>
       </div> : null}
 
       {active === "event" ? <div className={styles.grid}>
@@ -138,7 +171,7 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
         {field("Lời footer", form.footer.message, (value) => setForm((c) => ({ ...c, footer: { ...c.footer, message: value } })))}
       </div> : null}
 
-      <div className={styles.actions}><button type="submit" disabled={busy}>{busy ? "Đang lưu…" : "Lưu nội dung"}</button><span aria-live="polite">{message}</span></div>
+      <div className={styles.actions}><button type="submit" disabled={busy || uploadingMilestone !== null}>{busy ? "Đang lưu…" : "Lưu nội dung"}</button><span aria-live="polite">{message}</span></div>
     </form>
   </main>;
 }
