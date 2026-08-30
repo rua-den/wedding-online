@@ -1,9 +1,9 @@
-# Post-Audit Content & Media Hardening Plan
+# Post-Audit Content, Media & Experience Hardening Plan
 
 ## Status
 Planned and audited on `main` on 2026-08-30. **Not implemented yet.**
 
-This plan is the canonical follow-up backlog produced after reviewing the completed admin/SQLite, media/gallery, invitation content, theme, font, RSVP delete/filter, and CI work.
+This plan is the canonical follow-up backlog produced after reviewing the completed admin/SQLite, media/gallery, invitation content, theme, font, RSVP delete/filter, CI, milestone-image, and public invitation work.
 
 Do not treat the unchecked work below as already shipped. When an item is implemented, update this file in the same milestone/commit so another AI can recover the exact state from the repository.
 
@@ -17,22 +17,28 @@ This plan extends, but does not replace:
 - `docs/superpowers/plans/2026-08-30-invitation-font-presets.md`
 
 ## Goal
-Finish the five accepted post-audit improvements without changing public invitation/RSVP contracts, losing existing SQLite content, or reintroducing duplicate admin sources of truth.
+Finish the seven accepted post-audit improvements without changing public invitation/RSVP API contracts, losing existing SQLite content, deleting referenced uploads, or reintroducing duplicate admin sources of truth.
 
 The accepted audit items are:
 
 1. Make the remaining normal-state public invitation/RSVP copy editable.
 2. Remove the duplicate venue/date editor from `/admin` and keep `/admin/edit` as the single content-editing UI.
 3. Add non-destructive crop/focus controls to each love-story milestone image.
-4. Prevent uploaded-but-never-saved milestone images from accumulating as orphan files.
+4. Prevent uploaded-but-never-saved files from accumulating as orphan uploads.
 5. Add explicit invitation-content schema versioning and migrations so future content fields do not silently invalidate old JSON.
+6. Add admin-uploaded wedding background music with a browser-safe public player.
+7. Audit and fix the stuttering/jank observed while scrolling the public invitation, especially on mobile.
 
 ## Important execution order
 Keep the audit numbering above for traceability, but implement in this order:
 
-**5 → 1 → 2 → 3 → 4**
+**5 → 1 → 2 → 3 → 7 → 6 → 4**
 
-Reason: items 1 and 3 add new persisted content fields. Building the migration/version layer first prevents the exact compatibility problem identified in audit item 5.
+Reasons:
+
+- Items 1 and 3 add new persisted content fields. Building item 5 first prevents the exact compatibility problem identified in the audit.
+- Item 7 should establish a clean scroll-performance baseline before background audio adds another long-lived browser resource.
+- Item 4 must run after item 6, or be updated in the same milestone, because the orphan-prune reference set must protect the saved wedding audio as well as image assets.
 
 Each numbered audit item should still be committed as a clear milestone with tests.
 
@@ -253,53 +259,235 @@ Milestone images have the same non-destructive framing quality as the other invi
 
 ---
 
+# Audit Item 7 — Scroll animation and performance hardening
+
+## Problem
+The public invitation feels visibly `khựng`/janky while scrolling, particularly on mobile. The current repository does not have a dedicated animation dependency such as Framer Motion or GSAP, so this item must begin with profiling rather than assuming the problem is an animation library.
+
+Known current characteristics worth auditing include:
+
+- `html { scroll-behavior: smooth; }`.
+- Full-height `100svh` hero/personal sections.
+- Large uploaded images and gallery assets.
+- Theme canvas coverage and large painted surfaces.
+- Shadows/gradients/media overlays that may increase paint cost on lower-end phones.
+- Any reveal/scroll effects added by current or future CSS/JS must be included in the audit.
+
+## Architecture/performance decision
+Do **not** add a large animation framework as the first response to scroll jank.
+
+Profile the actual public pages first, then keep motion lightweight:
+
+- Prefer CSS `transform` and `opacity` for visual motion.
+- Never animate layout-heavy properties such as `top`, `left`, `height`, large `box-shadow` spreads, or continuously changing filters during scroll unless profiling proves they are cheap enough.
+- Do not attach an unthrottled `scroll` handler that reads layout and writes styles every frame.
+- If reveal-on-scroll behavior exists/is retained, prefer a single `IntersectionObserver`, animate each section once, and disconnect observations after reveal.
+- Respect `prefers-reduced-motion: reduce` and provide a fully usable static state.
+- Avoid permanent `will-change` on many elements; only use it when measurement proves a benefit.
+
+## Files to audit
+- `src/app/globals.css`
+- `src/app/invitation-theme.css`
+- `src/app/mobile-fixes.css`
+- `src/app/story-milestones.css`
+- `src/components/invitation.tsx`
+- `src/components/media-frame.tsx`
+- `src/components/gallery.tsx`
+- `src/components/personal-invitation.tsx`
+- Any future reveal/animation component introduced during the fix.
+- Playwright config/tests for mobile smoke coverage.
+
+## Profiling requirements
+- [ ] Reproduce on at least one mobile viewport and one desktop viewport.
+- [ ] Profile `/` and `/moi/[code]` separately.
+- [ ] Test with a realistic uploaded hero plus story/gallery images; an empty-media page is not a sufficient benchmark.
+- [ ] Inspect long tasks, forced layout/reflow, image decode work, main-thread event handlers, paint/composite cost, and layout shifts while scrolling through the whole page.
+- [ ] Record the primary bottleneck(s) in this plan before/when implementing the fix so future AI knows what was actually measured.
+- [ ] Distinguish normal image/network loading from continuous scroll-time jank.
+
+## Implementation requirements
+- [ ] Fix measured bottlenecks instead of masking them by removing all visual polish.
+- [ ] Keep normal finger/mousewheel scrolling native; do not implement custom smooth-scroll physics.
+- [ ] Ensure images below the fold remain lazily loaded where appropriate and have stable dimensions to avoid layout jumps.
+- [ ] If large theme/background paint techniques are responsible, replace them with a cheaper equivalent while keeping admin theme isolation intact.
+- [ ] If section reveal animation is used, animate once and only with compositor-friendly properties.
+- [ ] `prefers-reduced-motion` must disable non-essential scroll/reveal animation.
+- [ ] Mobile 320px+ must not gain horizontal overflow.
+- [ ] Keep gallery/lightbox interactions responsive after optimization.
+
+## Tests / verification
+- [ ] Existing visual/component tests remain green.
+- [ ] Add E2E smoke coverage for full-page scrolling on the general and personalized invitation without page errors or stuck overlays.
+- [ ] Add a reduced-motion E2E case if reveal animation exists after the fix.
+- [ ] Do not enforce brittle CI FPS numbers; GitHub-hosted runner timing is too noisy for a hard performance threshold.
+- [ ] Do document a before/after local/device profiling note in this plan or a linked performance note.
+- [ ] Playwright screenshots still capture the page after the final scroll state.
+
+## Done when
+The invitation scrolls smoothly enough on representative mobile hardware, with no repeated scroll-time main-thread work or paint pathology identified by the audit, while preserving the intended visual design.
+
+---
+
+# Audit Item 6 — Uploadable wedding background music
+
+## Problem
+The invitation currently has no managed wedding music. The admin needs to upload/replace/remove a background track and guests need an elegant, reliable way to play/pause it on both `/` and `/moi/[code]`.
+
+## Product decisions
+- Music is a **global invitation experience setting**, not per guest and not embedded inside `InvitationContent` JSON.
+- Put the admin controls in `/admin/appearance` as a third section after **Màu sắc** and **Font chữ**, because music belongs to the invitation presentation/experience rather than guest management.
+- v1 supports a single active track.
+- Public playback loops by default while the invitation is open.
+- Do not promise audible autoplay. Modern iOS/Android/desktop browsers may block autoplay until a user gesture.
+- Show a clear, accessible play/pause control. If an autoplay attempt is ever made, failure must silently fall back to the paused control rather than producing an error state.
+- Do not accept remote arbitrary URLs; only authenticated uploads managed by this application.
+
+## Storage architecture
+Use the existing persistent upload root (`MEDIA_UPLOAD_DIRECTORY`) so deployment/backup behavior stays consistent, but separate audio validation/canonical filenames from image validation.
+
+Do not simply add audio extensions to image-only helpers in a way that lets an audio file pass image APIs.
+
+Recommended structure:
+
+- shared safe upload-path containment utilities,
+- image canonical/validation rules remain image-only,
+- audio canonical/validation rules accept only the chosen audio formats,
+- a singleton SQLite `music_settings` record stores public metadata/reference, not audio bytes.
+
+Suggested persisted shape:
+
+```ts
+type MusicSettings = {
+  enabled: boolean;
+  src: string | null;
+  title: string;
+  loop: boolean;
+};
+```
+
+Do not store a client volume preference in SQLite in v1; device/browser volume behavior is not consistent enough across mobile platforms to make that a reliable global setting.
+
+## Audio formats and limits
+Choose a deliberately small supported set based on actual browser compatibility. Recommended v1 baseline:
+
+- MP3 (`audio/mpeg`) required.
+- M4A/AAC may be accepted if validation + public MIME serving are covered by tests.
+- OGG may be optional because Safari support is weaker than MP3.
+
+Set an explicit server-side size limit suitable for one wedding track (for example 25–30 MiB) and document the final value. Validate MIME + extension consistently; do not trust only the browser-provided filename.
+
+## Public serving requirement
+The existing `/uploads/[filename]` route is image-oriented and currently reads the complete file before returning it. Audio needs correct MIME handling and practical seeking/playback behavior.
+
+- [ ] Extend/refactor upload serving so approved audio files return the correct `Content-Type`.
+- [ ] Implement HTTP byte-range (`Range`) support for audio or provide an equivalent streaming-safe route, returning `206 Partial Content` and `Accept-Ranges: bytes` where appropriate.
+- [ ] Preserve immutable caching for canonical uploaded files.
+- [ ] Keep realpath/path-containment checks; audio must not weaken traversal/symlink protections.
+- [ ] Unknown extensions remain 404.
+
+## Admin files / API
+Expected files (final factoring may differ):
+
+- Create: `src/lib/music-store.ts`
+- Create: `src/lib/music-store.test.ts`
+- Create: `src/lib/audio-validation.ts`
+- Create or refactor: audio upload helper(s) under `src/lib/`.
+- Create: `src/app/api/admin/music/route.ts` for authenticated GET/PUT/upload/delete behavior, or split upload/settings endpoints if cleaner.
+- Modify: `src/components/admin-appearance-editor.tsx`
+- Modify: `src/components/admin-appearance-editor.module.css`
+- Modify: `src/app/admin/appearance/page.tsx` as needed.
+- Modify/refactor: `src/app/uploads/[filename]/route.ts` and tests.
+- Update README/README.vi/DEPLOYMENT backup notes if needed.
+
+## Admin UX requirements
+- [ ] Show current track title/file state.
+- [ ] Upload a new track.
+- [ ] Replace the current track safely.
+- [ ] Remove track with confirmation.
+- [ ] Enable/disable background music without deleting the file.
+- [ ] Toggle loop if retained as an admin option; default enabled.
+- [ ] Include an admin preview/play button without saving unrelated theme/font pending changes accidentally.
+- [ ] Failed upload/save keeps the previous working track.
+- [ ] Replacing/removing a saved track eventually cleans the old audio file without touching image assets.
+
+## Public player UX
+- [ ] Add one compact floating music control that does not cover RSVP/buttons on mobile.
+- [ ] Control has an accessible label that changes between play/pause state.
+- [ ] Do not hide the only control behind hover.
+- [ ] Music-disabled/no-track state renders no dead control.
+- [ ] Playback continues while scrolling through the one-page invitation.
+- [ ] Loop works when enabled.
+- [ ] A failed/deleted audio resource does not break the invitation; player can fall back to disabled/error-safe state.
+- [ ] Theme colors keep the control readable across all five themes.
+- [ ] Respect reduced-motion for any decorative spinning/pulsing music icon; audio itself is not automatically disabled by reduced-motion.
+
+## Tests
+- [ ] Store default/persistence/replace/remove behavior.
+- [ ] Admin auth rejects music mutation when unauthenticated.
+- [ ] Reject disallowed type and oversized audio.
+- [ ] Accept a valid small MP3 fixture.
+- [ ] Public upload route returns correct audio MIME and byte-range response.
+- [ ] Appearance admin renders current music and performs upload/enable/disable actions.
+- [ ] Public player is absent when disabled/no track and present when enabled.
+- [ ] Playwright uploads/selects a test track, opens `/` and `/moi/demo`, starts playback via user gesture, verifies the control state, and restores previous music state.
+- [ ] Playwright artifacts include screenshots with the music control on mobile.
+
+## Done when
+The admin can safely manage one persistent wedding track and guests can explicitly play/pause looping background music without autoplay-policy failures or broken mobile layout.
+
+---
+
 # Audit Item 4 — Clean up orphaned uploads
 
 ## Problem
-The milestone upload endpoint writes a canonical file into `MEDIA_UPLOAD_DIRECTORY` immediately. If an admin uploads an image and closes/reloads the page before saving content, that file is never referenced by `invitation_content` and can accumulate indefinitely.
+Upload endpoints can write canonical files into `MEDIA_UPLOAD_DIRECTORY` before the final content/settings save. If an admin uploads an image or audio file and closes/reloads the page before saving, that file can remain unreferenced indefinitely.
 
 Client-only cleanup on unload is not reliable enough; server-side reconciliation is required.
 
 ## Architecture decision
-Implement a conservative **unreferenced canonical upload prune** that understands both storage systems:
+Implement a conservative **unreferenced canonical upload prune** that understands all persistent upload references.
 
 Referenced uploads are the union of:
 
-1. all `media_assets.src` rows, and
-2. all milestone `imageSrc` values in current invitation content.
+1. all `media_assets.src` rows,
+2. all saved milestone `imageSrc` values in current invitation content, and
+3. the active/saved music track reference from `music_settings` when present.
 
-Only generated canonical `/uploads/<filename>` files may be considered for automatic deletion. Never delete arbitrary files in the upload directory.
+Only application-generated canonical upload filenames may be considered for automatic deletion. Never delete arbitrary files in the upload directory.
 
 Use an age grace period (recommended: 24 hours) so an in-progress upload/save cannot be pruned by another request.
 
 ## Files
-- Modify: `src/lib/media-upload.ts`
+- Modify/refactor: `src/lib/media-upload.ts` / shared upload path helpers.
 - Create: `src/lib/media-prune.ts`
 - Create: `src/lib/media-prune.test.ts`
 - Modify: `src/app/api/admin/content/image/route.ts`
 - Modify: `src/app/api/admin/content/route.ts` as appropriate.
+- Modify music upload/settings mutation paths from Audit Item 6.
 - Optionally create a maintenance script such as `scripts/media-prune.ts` if manual VPS cleanup is useful; if added, document it in README/DEPLOYMENT.
 
 ## Requirements
-- [ ] Enumerate only canonical generated upload filenames.
-- [ ] Build the referenced set from both media metadata and invitation milestone content.
-- [ ] Never delete a referenced media asset or saved milestone image.
+- [ ] Enumerate only known canonical generated image/audio filenames.
+- [ ] Build the referenced set from media metadata, invitation milestone content, and music settings.
+- [ ] Never delete a referenced media asset, saved milestone image, or active/saved wedding audio track.
 - [ ] Never delete a file younger than the configured grace period.
 - [ ] Ignore unknown/non-canonical files rather than attempting to manage them.
-- [ ] Cleanup failures do not cause a successful content save to be rolled back after persistence has committed.
-- [ ] Run pruning from a bounded admin-side lifecycle point (for example after successful content save and/or before/after a new admin upload), not on every public page request.
+- [ ] Cleanup failures do not cause a successful content/music save to be rolled back after persistence has committed.
+- [ ] Run pruning from a bounded admin-side lifecycle point (for example after successful content/music save and/or before/after a new admin upload), not on every public page request.
 - [ ] Log/report enough information for manual diagnosis without exposing filesystem paths to browsers.
 
 ## Tests
-- [ ] Old unreferenced canonical file is removed.
+- [ ] Old unreferenced canonical image is removed.
+- [ ] Old unreferenced canonical audio is removed.
 - [ ] Recent unreferenced file is retained.
 - [ ] File referenced by `media_assets` is retained.
 - [ ] File referenced by milestone content is retained.
+- [ ] File referenced by music settings is retained.
 - [ ] Non-canonical file is ignored.
 - [ ] Missing upload directory is harmless.
 
 ## Done when
-Abandoned milestone uploads cannot grow indefinitely, while referenced wedding media remains protected.
+Abandoned uploads cannot grow indefinitely, while all referenced wedding images and music remain protected.
 
 ---
 
@@ -323,12 +511,16 @@ Manual smoke check after deployment:
 
 - `/admin` guest/RSVP/media workflows still work and no duplicate venue editor remains.
 - `/admin/edit` can edit all intended invitation copy.
+- `/admin/appearance` can manage theme, font, and wedding music without cross-saving unrelated pending values incorrectly.
 - Existing production content is preserved after the schema migration.
 - `/` renders updated event/story copy and milestone crop.
 - `/moi/[code]` renders personalized guest + RSVP copy correctly.
 - Old milestone images remain visible after migration.
-- Upload cleanup does not remove active gallery/hero/portrait/venue/milestone images.
-- Mobile has no horizontal overflow introduced by new editor/crop controls.
+- Full-page mobile scrolling is visibly smooth with realistic media loaded.
+- Reduced-motion mode remains usable.
+- Music play/pause works after an explicit user gesture on mobile and desktop.
+- Upload cleanup does not remove active gallery/hero/portrait/venue/milestone images or the active wedding track.
+- Mobile has no horizontal overflow introduced by editor/crop/music controls.
 
 # Explicitly out of scope for this plan
 
@@ -339,10 +531,12 @@ Do not expand this audit plan into unrelated work:
 - Custom/free-form color picker or custom CSS.
 - Arbitrary uploaded fonts or font URLs.
 - Heading/body font pairing, font sizing, or letter-spacing controls.
-- Per-guest/per-section themes or fonts.
+- Per-guest/per-section themes, fonts, or music.
+- Playlist/multiple-track queue, Spotify/YouTube embedding, or remote music URLs.
+- Custom smooth-scroll engine or heavy animation framework without a measured need.
 - New invitation layout/template system.
 
-Those may be planned separately after these five accepted audit items are complete.
+Those may be planned separately after these seven accepted audit items are complete.
 
 # Completion protocol for future AI
 
@@ -352,9 +546,10 @@ For every implemented audit item:
 2. Read current `main`; do not assume file state from old plan text.
 3. Add/update tests with the implementation.
 4. Push a clearly named milestone commit to `main` only after source changes are coherent.
-5. Update the relevant section in **this file** with `✅ Implemented`, commit SHA(s), and any architecture deviation.
+5. Update the relevant section in **this file** with `✅ Implemented`, commit SHA(s), measured findings when relevant, and any architecture deviation.
 6. Let GitHub Actions verify unit/lint/build/E2E; do not claim success before the final HEAD workflow is green.
-7. At the end, change `## Status` to `Implemented` and leave any intentionally deferred cleanup explicitly documented.
+7. For Audit Item 7, record the measured scroll-performance cause and before/after verification rather than only saying `optimized`.
+8. At the end, change `## Status` to `Implemented` and leave any intentionally deferred cleanup explicitly documented.
 
 ## Final done-when summary
 
@@ -362,5 +557,7 @@ For every implemented audit item:
 - [ ] Remaining normal-state public event/RSVP copy is editable from `/admin/edit`.
 - [ ] `/admin` no longer duplicates venue/date editing.
 - [ ] Love-story milestone images support focus/zoom crop metadata and preview.
-- [ ] Old abandoned canonical uploads are safely pruned without touching referenced media.
+- [ ] Public invitation scroll performance has been profiled and the measured jank source(s) fixed.
+- [ ] Admin can upload/manage one wedding background track and public pages expose a browser-safe play/pause control.
+- [ ] Old abandoned canonical image/audio uploads are safely pruned without touching referenced media/music.
 - [ ] Unit tests, lint, build, Playwright E2E, screenshots/artifacts all pass on final HEAD.
