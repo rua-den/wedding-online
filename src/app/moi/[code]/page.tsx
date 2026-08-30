@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { InvitationThemeScope } from "@/components/invitation-theme-scope";
 import { PersonalInvitation } from "@/components/personal-invitation";
-import { resolveAppearanceThemeId } from "@/lib/appearance-store";
+import { resolveAppearanceSettings } from "@/lib/appearance-store";
 import { getInvitationContent } from "@/lib/invitation-content-store";
 import { getInvitation } from "@/lib/invitation-service";
 import { listActiveMedia, toPublicMediaAsset } from "@/lib/media-store";
@@ -28,7 +28,10 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   return { title: `${couple} | Thiệp mời lễ thành hôn`, description: `Trân trọng kính mời bạn đến chung vui cùng ${couple}.` };
 }
 
-type SearchParams = Promise<{ previewTheme?: string | string[] }>;
+type SearchParams = Promise<{
+  previewTheme?: string | string[];
+  previewFont?: string | string[];
+}>;
 
 export default async function PersonalInvitationPage({
   params,
@@ -40,9 +43,10 @@ export default async function PersonalInvitationPage({
   const { code } = await params;
   const query = searchParams ? await searchParams : {};
   const previewTheme = Array.isArray(query.previewTheme) ? query.previewTheme[0] : query.previewTheme;
-  const themeId = resolveAppearanceThemeId(previewTheme);
+  const previewFont = Array.isArray(query.previewFont) ? query.previewFont[0] : query.previewFont;
+  const appearance = resolveAppearanceSettings({ previewTheme, previewFont });
 
-  return <InvitationThemeScope themeId={themeId}>
+  return <InvitationThemeScope themeId={appearance.themeId} fontId={appearance.fontId}>
     <PersonalInvitation code={code} media={listActiveMedia().map(toPublicMediaAsset)} content={getInvitationContent()} />
   </InvitationThemeScope>;
 }
