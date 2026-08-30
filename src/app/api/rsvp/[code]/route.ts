@@ -41,5 +41,5 @@ export async function PUT(request: Request, { params }: { params: Promise<{ code
     return Response.json({ message: result.message }, { status: result.status });
   }
 
-  return Response.json({ message: "Cảm ơn bạn đã xác nhận tham dự!" });
+  return Response.json({ message: content.rsvp.successMessage });
 }
