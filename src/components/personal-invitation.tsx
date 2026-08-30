@@ -44,7 +44,7 @@ export function PersonalInvitation({ code, media = [], content }: { code: string
         <p className="eyebrow">{copy.rsvp.eyebrow}</p>
         <h2 id="rsvp-title">{copy.rsvp.title}</h2>
         <p>{copy.rsvp.intro} {new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(copy.event.rsvpDeadline))}.</p>
-        <RsvpForm code={code} guestName={invitation.guestName} isClosed={isClosed} maxGuests={invitation.maxGuests} />
+        <RsvpForm code={code} guestName={invitation.guestName} isClosed={isClosed} maxGuests={invitation.maxGuests} copy={copy.rsvp} />
       </div>
     </section>
   </>;
