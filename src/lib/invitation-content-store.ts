@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
+import {
+  CURRENT_INVITATION_CONTENT_SCHEMA_VERSION,
+  FutureInvitationContentVersionError,
+  migrateInvitationContent,
+} from "@/lib/invitation-content-migrations";
 import { canonicalUploadFilename } from "@/lib/media-upload";
 import { getDatabase, initializeDatabase } from "@/lib/sqlite";
 import { getSiteSettings, isGoogleMapsHttpsUrl, updateSiteSettings } from "@/lib/site-settings";
@@ -62,17 +67,36 @@ function database() {
     CREATE TABLE IF NOT EXISTS invitation_content (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       content_json TEXT NOT NULL,
+      schema_version INTEGER NOT NULL DEFAULT 1,
       updated_at TEXT NOT NULL
     );
   `);
+
+  const columns = connection.prepare("PRAGMA table_info(invitation_content)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "schema_version")) {
+    connection.exec("ALTER TABLE invitation_content ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1");
+  }
+
   return connection;
 }
 
+type StoredContentRow = {
+  content_json?: string;
+  schema_version?: number;
+};
+
+function storedContentRow(): StoredContentRow | undefined {
+  return database()
+    .prepare("SELECT content_json, schema_version FROM invitation_content WHERE id = 1")
+    .get() as StoredContentRow | undefined;
+}
+
 function storedContent(): InvitationContent | null {
-  const row = database().prepare("SELECT content_json FROM invitation_content WHERE id = 1").get() as { content_json?: string } | undefined;
+  const row = storedContentRow();
   if (!row?.content_json) return null;
   try {
-    const parsed = invitationContentSchema.safeParse(JSON.parse(row.content_json));
+    const migrated = migrateInvitationContent(JSON.parse(row.content_json), row.schema_version ?? 1);
+    const parsed = invitationContentSchema.safeParse(migrated.content);
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -96,6 +120,12 @@ export function getInvitationContent(): InvitationContent {
 }
 
 export function updateInvitationContent(input: unknown): InvitationContent {
+  const currentRow = storedContentRow();
+  const storedVersion = currentRow?.schema_version ?? 1;
+  if (currentRow && storedVersion > CURRENT_INVITATION_CONTENT_SCHEMA_VERSION) {
+    throw new FutureInvitationContentVersionError(storedVersion);
+  }
+
   const parsed = invitationContentSchema.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Nội dung thiệp chưa hợp lệ.");
 
@@ -109,10 +139,13 @@ export function updateInvitationContent(input: unknown): InvitationContent {
 
   const now = new Date().toISOString();
   database().prepare(`
-    INSERT INTO invitation_content (id, content_json, updated_at)
-    VALUES (1, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET content_json = excluded.content_json, updated_at = excluded.updated_at
-  `).run(JSON.stringify(parsed.data), now);
+    INSERT INTO invitation_content (id, content_json, schema_version, updated_at)
+    VALUES (1, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      content_json = excluded.content_json,
+      schema_version = excluded.schema_version,
+      updated_at = excluded.updated_at
+  `).run(JSON.stringify(parsed.data), CURRENT_INVITATION_CONTENT_SCHEMA_VERSION, now);
 
   return getInvitationContent();
 }
