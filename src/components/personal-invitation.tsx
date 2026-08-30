@@ -6,6 +6,7 @@ import { defaultInvitationContent } from "@/config/invitation-content";
 import type { PublicMediaAsset } from "@/lib/media-store";
 import type { InvitationContent } from "@/types/invitation-content";
 import { Invitation } from "./invitation";
+import { OpenInvitationButton } from "./open-invitation-button";
 import { RsvpForm } from "./rsvp-form";
 
 type InvitationData = { guestName: string; maxGuests: number };
@@ -33,10 +34,13 @@ export function PersonalInvitation({ code, media = [], content }: { code: string
   const isClosed = new Date() > new Date(copy.event.rsvpDeadline);
 
   return <>
-    <section className="personal-cover section-shell">
-      <p className="eyebrow">{copy.personal.eyebrow}</p>
-      <h1>{invitation.guestName}</h1>
-      <p>{copy.personal.message}</p>
+    <section className="personal-cover personal-cover-full section-shell" aria-labelledby="personal-invitation-title">
+      <div className="personal-cover-content">
+        <p className="eyebrow">{copy.personal.eyebrow}</p>
+        <h1 id="personal-invitation-title">{invitation.guestName}</h1>
+        <p>{copy.personal.message}</p>
+        <OpenInvitationButton label={copy.cover.scrollCue} targetId="thiep-cuoi" />
+      </div>
     </section>
     <Invitation media={media} content={copy} />
     <section className="rsvp-section section-shell" aria-labelledby="rsvp-title">
