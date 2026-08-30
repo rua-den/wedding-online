@@ -78,20 +78,88 @@ jobs:
       - name: Run browser tests
         run: npm run test:e2e
 
-      - name: Upload Playwright HTML report
-        if: always()
+      - name: Upload visual smoke previews
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: visual-previews
+          path: visual-previews/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Playwright HTML report on failure
+        if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: playwright-report
           path: playwright-report/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 3
 
-      - name: Upload E2E screenshots and traces
-        if: always()
+      - name: Upload screenshots and traces on failure
+        if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: playwright-test-results
           path: test-results/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 3
+
+  visual-summary:
+    name: Visual smoke summary
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-slim
+    needs: e2e
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download visual previews
+        uses: actions/download-artifact@v6
+        with:
+          name: visual-previews
+          path: visual-previews
+
+      - name: Publish latest previews
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir visual-publish
+          cp -R visual-previews/. visual-publish/
+          cd visual-publish
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b ci-visuals
+          cat > README.md <<EOF
+          # Latest CI visual smoke previews
+
+          Generated from commit ${GITHUB_SHA} by Actions run ${GITHUB_RUN_ID}.
+          This branch is force-replaced on each successful push to main, so it keeps only the latest visual smoke screenshots.
+          EOF
+          git add .
+          git commit -m "ci: update visual previews for ${GITHUB_SHA}"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin ci-visuals
+
+      - name: Show previews in Actions summary
+        run: |
+          RAW_BASE="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/ci-visuals"
+          RUN_QUERY="run=${GITHUB_RUN_ID}"
+          {
+            echo "## Wedding invitation visual smoke"
+            echo
+            echo "Commit \`${GITHUB_SHA:0:7}\` · Playwright passed before these screenshots were published."
+            echo
+            echo '<table><tr><th>Home · Mobile</th><th>Home · Desktop</th></tr><tr>'
+            echo "<td><a href=\"${RAW_BASE}/home-mobile.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/home-mobile.png?${RUN_QUERY}\" width=\"300\" alt=\"Home mobile preview\"></a></td>"
+            echo "<td><a href=\"${RAW_BASE}/home-desktop.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/home-desktop.png?${RUN_QUERY}\" width=\"480\" alt=\"Home desktop preview\"></a></td>"
+            echo '</tr><tr><th>Guest cover · Mobile</th><th>Guest opened · Mobile</th></tr><tr>'
+            echo "<td><a href=\"${RAW_BASE}/personal-cover-mobile.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/personal-cover-mobile.png?${RUN_QUERY}\" width=\"300\" alt=\"Personal cover mobile preview\"></a></td>"
+            echo "<td><a href=\"${RAW_BASE}/personal-open-mobile.png?${RUN_QUERY}\"><img src=\"${RAW_BASE}/personal-open-mobile.png?${RUN_QUERY}\" width=\"300\" alt=\"Personal invitation opened mobile preview\"></a></td>"
+            echo '</tr></table>'
+            echo
+            echo "Detailed Playwright report/screenshots/traces are uploaded only when E2E fails."
+          } >> "$GITHUB_STEP_SUMMARY"
