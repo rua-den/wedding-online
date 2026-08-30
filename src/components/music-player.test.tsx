@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { OPEN_INVITATION_EVENT } from "@/lib/invitation-events";
 import { MusicPlayer } from "./music-player";
 
 const settings = {
@@ -18,17 +17,21 @@ afterEach(() => {
 });
 
 describe("MusicPlayer", () => {
-  it("attempts autoplay and retries from the open-invitation user gesture", async () => {
+  it("attempts autoplay immediately and retries when the audio becomes ready", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play")
       .mockRejectedValueOnce(new DOMException("Autoplay blocked", "NotAllowedError"))
       .mockResolvedValue(undefined);
 
-    render(<MusicPlayer settings={settings} />);
+    const { container } = render(<MusicPlayer settings={settings} />);
+    const audio = container.querySelector("audio");
+    expect(audio).not.toBeNull();
+    expect(audio).toHaveAttribute("autoplay");
+    expect(audio).toHaveAttribute("playsinline");
 
     await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("button", { name: "Phát Wedding song" })).toBeInTheDocument();
 
-    act(() => window.dispatchEvent(new Event(OPEN_INVITATION_EVENT)));
+    fireEvent.canPlay(audio!);
     await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
   });
 });
