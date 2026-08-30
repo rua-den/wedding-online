@@ -1,16 +1,19 @@
 import { z } from "zod";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
+import { canonicalUploadFilename } from "@/lib/media-upload";
 import { getDatabase, initializeDatabase } from "@/lib/sqlite";
 import { getSiteSettings, isGoogleMapsHttpsUrl, updateSiteSettings } from "@/lib/site-settings";
 import type { InvitationContent } from "@/types/invitation-content";
 
 const text = (label: string, max: number) => z.string().trim().min(1, `Vui lòng nhập ${label}.`).max(max, `${label} quá dài.`);
 const isoDate = (label: string) => text(label, 80).refine((value) => !Number.isNaN(new Date(value).getTime()), `${label} không hợp lệ.`);
+const milestoneImage = z.string().trim().refine((value) => canonicalUploadFilename(value) !== null, "Ảnh mốc chuyện tình không hợp lệ.").nullable().optional().default(null);
 const milestoneSchema = z.object({
   date: text("mốc thời gian", 120),
   title: text("tiêu đề câu chuyện", 160),
   description: text("nội dung câu chuyện", 600),
+  imageSrc: milestoneImage,
 });
 
 export const invitationContentSchema: z.ZodType<InvitationContent> = z.object({
