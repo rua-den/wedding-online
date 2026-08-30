@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
-import type { LoveStoryMilestoneContent } from "@/types/invitation-content";
-import { closeDatabaseForTests } from "./sqlite";
+import { CURRENT_INVITATION_CONTENT_SCHEMA_VERSION } from "./invitation-content-migrations";
+import { closeDatabaseForTests, getDatabase } from "./sqlite";
 import { getInvitationContent, invitationContentSchema, updateInvitationContent } from "./invitation-content-store";
 
 let directory: string;
@@ -23,6 +23,12 @@ afterEach(() => {
   rmSync(directory, { recursive: true, force: true });
 });
 
+function contentRow() {
+  return getDatabase()
+    .prepare("SELECT content_json, schema_version FROM invitation_content WHERE id = 1")
+    .get() as { content_json: string; schema_version: number } | undefined;
+}
+
 describe("invitation content store", () => {
   it("falls back to config copy before an admin saves overrides", () => {
     const content = getInvitationContent();
@@ -31,15 +37,25 @@ describe("invitation content store", () => {
     expect(content.story.milestones[0]?.imageSrc).toBeNull();
   });
 
-  it("accepts stored legacy milestones that predate image support", () => {
-    const content = defaultInvitationContent();
-    delete (content.story.milestones[0] as Partial<LoveStoryMilestoneContent>).imageSrc;
+  it("migrates a legacy v1 row in memory without rewriting it", () => {
+    getInvitationContent();
+    const legacy = defaultInvitationContent() as unknown as Record<string, unknown>;
+    const story = legacy.story as { milestones: Array<Record<string, unknown>> };
+    delete story.milestones[0]?.imageSrc;
+    (legacy.couple as Record<string, unknown>).shortGroomName = "Anh";
 
-    const parsed = invitationContentSchema.parse(content);
-    expect(parsed.story.milestones[0]?.imageSrc).toBeNull();
+    getDatabase().prepare(`
+      INSERT INTO invitation_content (id, content_json, schema_version, updated_at)
+      VALUES (1, ?, 1, ?)
+    `).run(JSON.stringify(legacy), new Date().toISOString());
+
+    const migrated = getInvitationContent();
+    expect(migrated.couple.shortGroomName).toBe("Anh");
+    expect(migrated.story.milestones[0]?.imageSrc).toBeNull();
+    expect(contentRow()?.schema_version).toBe(1);
   });
 
-  it("persists editable section content and event settings", () => {
+  it("persists editable content at the current schema version", () => {
     const content = defaultInvitationContent();
     content.couple.shortGroomName = "Anh";
     content.cover.message = "Lời mời mới";
@@ -58,6 +74,57 @@ describe("invitation content store", () => {
     expect(saved.cover.message).toBe("Lời mời mới");
     expect(saved.event.venue).toBe("Sảnh Mới");
     expect(getInvitationContent().story.milestones).toEqual(content.story.milestones);
+    expect(contentRow()?.schema_version).toBe(CURRENT_INVITATION_CONTENT_SCHEMA_VERSION);
+  });
+
+  it("advances a migrated legacy row only when it is saved", () => {
+    getInvitationContent();
+    const legacy = defaultInvitationContent() as unknown as Record<string, unknown>;
+    const story = legacy.story as { milestones: Array<Record<string, unknown>> };
+    delete story.milestones[0]?.imageSrc;
+    getDatabase().prepare(`
+      INSERT INTO invitation_content (id, content_json, schema_version, updated_at)
+      VALUES (1, ?, 1, ?)
+    `).run(JSON.stringify(legacy), new Date().toISOString());
+
+    const migrated = getInvitationContent();
+    expect(contentRow()?.schema_version).toBe(1);
+    updateInvitationContent(migrated);
+    expect(contentRow()?.schema_version).toBe(CURRENT_INVITATION_CONTENT_SCHEMA_VERSION);
+  });
+
+  it("does not downgrade or overwrite a future schema version", () => {
+    getInvitationContent();
+    const futureJson = JSON.stringify({ future: true });
+    getDatabase().prepare(`
+      INSERT INTO invitation_content (id, content_json, schema_version, updated_at)
+      VALUES (1, ?, 99, ?)
+    `).run(futureJson, new Date().toISOString());
+
+    expect(getInvitationContent().couple.shortGroomName).toBe("Huy");
+    expect(contentRow()).toMatchObject({ content_json: futureJson, schema_version: 99 });
+    expect(() => updateInvitationContent(defaultInvitationContent())).toThrow("schema version 99");
+    expect(contentRow()).toMatchObject({ content_json: futureJson, schema_version: 99 });
+  });
+
+  it("does not mutate malformed stored JSON during read", () => {
+    getInvitationContent();
+    getDatabase().prepare(`
+      INSERT INTO invitation_content (id, content_json, schema_version, updated_at)
+      VALUES (1, ?, 1, ?)
+    `).run("{broken", new Date().toISOString());
+
+    expect(getInvitationContent().couple.shortGroomName).toBe("Huy");
+    expect(contentRow()).toMatchObject({ content_json: "{broken", schema_version: 1 });
+  });
+
+  it("keeps the current schema compatible with milestones that omit imageSrc", () => {
+    const content = defaultInvitationContent() as unknown as Record<string, unknown>;
+    const story = content.story as { milestones: Array<Record<string, unknown>> };
+    delete story.milestones[0]?.imageSrc;
+    const migrated = getInvitationContent();
+    expect(migrated.story.milestones[0]?.imageSrc).toBeNull();
+    expect(invitationContentSchema.safeParse(content).success).toBe(true);
   });
 
   it("rejects unsafe maps URLs", () => {
