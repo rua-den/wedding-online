@@ -1,12 +1,11 @@
-import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { pruneOrphanUploads } from "./media-prune";
-import { closeDatabaseForTests, getDatabase, initializeDatabase } from "./sqlite";
 import { updateMusicSettings } from "./music-store";
+import { closeDatabaseForTests, getDatabase, initializeDatabase } from "./sqlite";
 
 let directory: string;
 let uploads: string;
@@ -79,12 +78,12 @@ describe("orphan upload prune", () => {
     const result = await pruneOrphanUploads({ nowMs });
 
     expect(result.deleted.sort()).toEqual([src(filenames.orphanAudio), src(filenames.orphanImage)].sort());
-    expect(() => require("node:fs").statSync(join(uploads, filenames.orphanImage))).toThrow();
-    expect(() => require("node:fs").statSync(join(uploads, filenames.orphanAudio))).toThrow();
+    expect(() => statSync(join(uploads, filenames.orphanImage))).toThrow();
+    expect(() => statSync(join(uploads, filenames.orphanAudio))).toThrow();
     for (const filename of [filenames.recentImage, filenames.mediaImage, filenames.milestoneImage, filenames.musicAudio]) {
-      expect(require("node:fs").existsSync(join(uploads, filename))).toBe(true);
+      expect(existsSync(join(uploads, filename))).toBe(true);
     }
-    expect(require("node:fs").existsSync(join(uploads, "notes.txt"))).toBe(true);
+    expect(existsSync(join(uploads, "notes.txt"))).toBe(true);
     expect(result.ignored).toBe(1);
   });
 
@@ -105,6 +104,6 @@ describe("orphan upload prune", () => {
     db.prepare("INSERT INTO invitation_content (id, content_json, schema_version, updated_at) VALUES (1, '{broken', 1, ?)").run(new Date(nowMs).toISOString());
 
     await expect(pruneOrphanUploads({ nowMs })).rejects.toThrow("JSON không hợp lệ");
-    expect(require("node:fs").existsSync(join(uploads, filenames.orphanImage))).toBe(true);
+    expect(existsSync(join(uploads, filenames.orphanImage))).toBe(true);
   });
 });
