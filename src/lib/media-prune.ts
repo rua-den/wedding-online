@@ -41,14 +41,17 @@ export function referencedUploadSources(): Set<string> {
   const musicRow = connection.prepare("SELECT src FROM music_settings WHERE id = 1").get() as { src?: string | null } | undefined;
   if (musicRow?.src?.startsWith("/uploads/")) references.add(musicRow.src);
 
-  const contentRow = connection.prepare("SELECT content_json FROM invitation_content WHERE id = 1").get() as { content_json?: string } | undefined;
-  if (contentRow?.content_json) {
-    try {
-      collectUploadStrings(JSON.parse(contentRow.content_json), references);
-    } catch {
-      // Malformed content means we cannot prove which uploads it references.
-      // Abort pruning rather than risk deleting user media.
-      throw new Error("Không thể prune upload vì invitation_content đang có JSON không hợp lệ.");
+  const contentTable = connection.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'invitation_content'").get() as { name?: string } | undefined;
+  if (contentTable) {
+    const contentRow = connection.prepare("SELECT content_json FROM invitation_content WHERE id = 1").get() as { content_json?: string } | undefined;
+    if (contentRow?.content_json) {
+      try {
+        collectUploadStrings(JSON.parse(contentRow.content_json), references);
+      } catch {
+        // Malformed content means we cannot prove which uploads it references.
+        // Abort pruning rather than risk deleting user media.
+        throw new Error("Không thể prune upload vì invitation_content đang có JSON không hợp lệ.");
+      }
     }
   }
 
