@@ -2,6 +2,7 @@
   background: var(--invitation-canvas);
   box-shadow: 0 0 0 100vmax var(--invitation-canvas);
   color: var(--invitation-ink);
+  font-family: var(--invitation-font-display, Georgia, "Times New Roman", serif);
   min-height: 100svh;
 }
 
