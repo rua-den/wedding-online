@@ -148,6 +148,9 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
         {field("Hạn RSVP ISO", form.event.rsvpDeadline, (value) => setForm((c) => ({ ...c, event: { ...c.event, rsvpDeadline: value } })))}
         {field("Nhãn ngày hiển thị", form.event.dateLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, dateLabel: value } })))}
         {field("Giờ hiển thị", form.event.timeLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeLabel: value } })))}
+        {field("Nhãn 'Thời gian'", form.event.timeHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeHeading: value } })))}
+        {field("Nhãn 'Địa điểm'", form.event.venueHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, venueHeading: value } })))}
+        {field("Nhãn chỉ đường", form.event.directionsLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, directionsLabel: value } })))}
         {field("Tên địa điểm", form.event.venue, (value) => setForm((c) => ({ ...c, event: { ...c.event, venue: value } })))}
         {field("Địa chỉ", form.event.address, (value) => setForm((c) => ({ ...c, event: { ...c.event, address: value } })))}
         <div className={styles.wide}>{field("Google Maps URL", form.event.mapsUrl, (value) => setForm((c) => ({ ...c, event: { ...c.event, mapsUrl: value } })), { type: "url", maxLength: 2048 })}</div>
@@ -164,6 +167,18 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
         <div className={styles.wide}>{field("Lời mời riêng", form.personal.message, (value) => setForm((c) => ({ ...c, personal: { ...c.personal, message: value } })), { multiline: true })}</div>
         {field("Tiêu đề RSVP", form.rsvp.title, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, title: value } })))}
         {field("Lời nhắc trước hạn", form.rsvp.intro, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, intro: value } })))}
+        {field("Lời chào trước tên khách", form.rsvp.greetingPrefix, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, greetingPrefix: value } })))}
+        {field("Câu hỏi tham dự", form.rsvp.attendanceQuestion, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, attendanceQuestion: value } })))}
+        {field("Lựa chọn tham dự", form.rsvp.attendingLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, attendingLabel: value } })))}
+        {field("Lựa chọn không tham dự", form.rsvp.declinedLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, declinedLabel: value } })))}
+        {field("Nhãn số người", form.rsvp.guestCountLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, guestCountLabel: value } })))}
+        {field("Hậu tố số người", form.rsvp.guestCountSuffix, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, guestCountSuffix: value } })), { maxLength: 40 })}
+        {field("Nhãn lời nhắn", form.rsvp.messageLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, messageLabel: value } })))}
+        {field("Placeholder lời nhắn", form.rsvp.messagePlaceholder, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, messagePlaceholder: value } })))}
+        {field("Nút gửi", form.rsvp.submitLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, submitLabel: value } })))}
+        {field("Nhãn đang gửi", form.rsvp.submittingLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, submittingLabel: value } })))}
+        {field("Thông báo hết hạn", form.rsvp.closedMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, closedMessage: value } })))}
+        {field("Thông báo thành công mặc định", form.rsvp.successMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, successMessage: value } })))}
       </div> : null}
 
       {active === "footer" ? <div className={styles.grid}>
