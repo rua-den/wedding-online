@@ -1,13 +1,36 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { OPEN_INVITATION_EVENT } from "@/lib/invitation-events";
 import type { MusicSettings } from "@/lib/music-store";
 
 export function MusicPlayer({ settings }: { settings: MusicSettings }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!settings.enabled || !settings.src) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const play = async () => {
+      try {
+        await audio.play();
+        setPlaying(true);
+      } catch {
+        // Audible autoplay may be blocked by browser policy. The "Mở thiệp"
+        // user gesture dispatches OPEN_INVITATION_EVENT and retries playback.
+        setPlaying(false);
+      }
+    };
+
+    void play();
+    const resume = () => { void play(); };
+    window.addEventListener(OPEN_INVITATION_EVENT, resume);
+    return () => window.removeEventListener(OPEN_INVITATION_EVENT, resume);
+  }, [settings.enabled, settings.src]);
 
   if (!settings.enabled || !settings.src || failed) return null;
 
@@ -33,7 +56,8 @@ export function MusicPlayer({ settings }: { settings: MusicSettings }) {
       ref={audioRef}
       src={settings.src}
       loop={settings.loop}
-      preload="metadata"
+      preload="auto"
+      autoPlay
       onPause={() => setPlaying(false)}
       onPlay={() => setPlaying(true)}
       onEnded={() => setPlaying(false)}
