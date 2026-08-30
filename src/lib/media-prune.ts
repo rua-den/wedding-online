@@ -75,7 +75,7 @@ export async function pruneOrphanUploads(options: { graceMs?: number; nowMs?: nu
   let retained = 0;
   let ignored = 0;
 
-  let entries: Awaited<ReturnType<typeof readdir>>;
+  let entries: string[];
   try {
     entries = await readdir(mediaUploadDirectory());
   } catch (error) {
