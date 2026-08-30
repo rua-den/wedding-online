@@ -47,8 +47,8 @@ export function Invitation({ media = [], content }: { media?: PublicMediaAsset[]
     </section>
 
     <section className="event-section section-shell" aria-labelledby="event-title"><div className={`event-card${venue ? " has-venue-image" : ""}`}>{venue ? <MediaFrame asset={venue} className="venue-image media-frame-slot-venue" alt={venue.alt || event.venue} loading="lazy" /> : null}<div className="event-copy"><p className="eyebrow">{event.eyebrow}</p><h2 id="event-title">{event.title}</h2><FloralMark />
-      <dl className="event-details"><div><dt>Thời gian</dt><dd>{event.timeLabel}</dd><dd>{event.dateLabel}</dd></div><div><dt>Địa điểm</dt><dd>{event.venue}</dd><dd>{event.address}</dd></div></dl>
-      <a className="map-link" href={event.mapsUrl} target="_blank" rel="noreferrer">Xem chỉ đường <span aria-hidden="true">↗</span></a></div></div></section>
+      <dl className="event-details"><div><dt>{event.timeHeading}</dt><dd>{event.timeLabel}</dd><dd>{event.dateLabel}</dd></div><div><dt>{event.venueHeading}</dt><dd>{event.venue}</dd><dd>{event.address}</dd></div></dl>
+      <a className="map-link" href={event.mapsUrl} target="_blank" rel="noreferrer">{event.directionsLabel} <span aria-hidden="true">↗</span></a></div></div></section>
 
     <section className="gallery-section section-shell" aria-labelledby="gallery-title"><div className="section-heading"><p className="eyebrow">{copy.gallery.eyebrow}</p><h2 id="gallery-title">{copy.gallery.title}</h2></div><Gallery assets={gallery} /></section>
     <footer className="site-footer section-shell"><FloralMark /><p>{copy.footer.title}</p><small>{copy.footer.message}</small></footer>
