@@ -2,6 +2,7 @@ export type LoveStoryMilestoneContent = {
   date: string;
   title: string;
   description: string;
+  imageSrc: string | null;
 };
 
 export type InvitationContent = {
