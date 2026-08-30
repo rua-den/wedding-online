@@ -4,9 +4,8 @@ import { redirect } from "next/navigation";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminTabs } from "@/components/admin-tabs";
 import { adminSessionCookie, verifyAdminSession } from "@/lib/admin-auth";
-import { getAdminSummary, listAdminInvitations, listAdminRsvps } from "@/lib/sqlite-store";
 import { listAdminMedia } from "@/lib/media-store";
-import { getSiteSettings } from "@/lib/site-settings";
+import { getAdminSummary, listAdminInvitations, listAdminRsvps } from "@/lib/sqlite-store";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,6 @@ export default async function AdminPage() {
       rsvps={listAdminRsvps()}
       siteUrl={siteUrl}
       media={listAdminMedia()}
-      settings={getSiteSettings()}
     />
   </>;
 }
