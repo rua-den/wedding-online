@@ -257,8 +257,12 @@ test("public invitation remains usable with reduced motion", async ({ page }) =>
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await expect(page.locator("#invitation-title")).toBeVisible();
-  const transitionDuration = await page.locator(".scroll-cue span").evaluate((element) => getComputedStyle(element).transitionDuration);
-  expect(["0s", "0.00001s"]).toContain(transitionDuration);
+  const transitionDurationSeconds = await page.locator(".scroll-cue span").evaluate((element) => {
+    const value = getComputedStyle(element).transitionDuration.trim();
+    if (value.endsWith("ms")) return Number.parseFloat(value) / 1000;
+    return Number.parseFloat(value);
+  });
+  expect(transitionDurationSeconds).toBeLessThanOrEqual(0.00001);
 });
 
 test("personalised preview keeps the validated guest name visible", async ({ page }) => {
