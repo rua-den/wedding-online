@@ -26,23 +26,26 @@ afterEach(() => {
 describe("personal invitation page settings", () => {
   it("passes persisted content and appearance to personalized invitations", async () => {
     updateSiteSettings({ venue: "Sảnh Hoa", mapsUrl: "https://maps.google.com/?q=Sanh+Hoa" });
-    updateAppearanceSettings({ themeId: "sage-garden" });
+    updateAppearanceSettings({ themeId: "sage-garden", fontId: "lora" });
 
     const page = await PersonalInvitationPage({ params: Promise.resolve({ code: "demo" }) });
     expect(page.props.themeId).toBe("sage-garden");
+    expect(page.props.fontId).toBe("lora");
     expect(page.props.children.props.content.event.venue).toBe("Sảnh Hoa");
   });
 
-  it("uses a valid preview theme without changing persisted appearance", async () => {
-    updateAppearanceSettings({ themeId: "sage-garden" });
+  it("uses valid preview appearance without changing persisted settings", async () => {
+    updateAppearanceSettings({ themeId: "sage-garden", fontId: "lora" });
 
     const previewPage = await PersonalInvitationPage({
       params: Promise.resolve({ code: "demo" }),
-      searchParams: Promise.resolve({ previewTheme: "midnight-gold" }),
+      searchParams: Promise.resolve({ previewTheme: "midnight-gold", previewFont: "cormorant-garamond" }),
     });
     expect(previewPage.props.themeId).toBe("midnight-gold");
+    expect(previewPage.props.fontId).toBe("cormorant-garamond");
 
     const persistedPage = await PersonalInvitationPage({ params: Promise.resolve({ code: "demo" }) });
     expect(persistedPage.props.themeId).toBe("sage-garden");
+    expect(persistedPage.props.fontId).toBe("lora");
   });
 });
