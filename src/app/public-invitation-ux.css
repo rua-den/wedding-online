@@ -1,3 +1,28 @@
+.invitation-theme-scope .section-shell:not(.site-footer) {
+  min-height: 100svh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.invitation-theme-scope button,
+.invitation-theme-scope .map-link {
+  border-radius: 999px;
+}
+
+.invitation-theme-scope button {
+  transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+
+.invitation-theme-scope button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.invitation-theme-scope button:active:not(:disabled) {
+  transform: scale(.985);
+}
+
 .invitation-theme-scope .hero {
   height: 100dvh;
   min-height: 100svh;
@@ -88,6 +113,9 @@
 }
 
 @media (max-height: 700px) {
+  .invitation-theme-scope .section-shell:not(.hero):not(.personal-cover):not(.site-footer) {
+    padding-block: clamp(3rem, 8vh, 5rem);
+  }
   .invitation-theme-scope .hero-frame {
     padding-block: 1.2rem;
   }
@@ -110,7 +138,7 @@
 
 @media (min-width: 960px) {
   .invitation-theme-scope .section-shell:not(.hero):not(.personal-cover) {
-    padding: clamp(7rem, 9vw, 9.5rem) clamp(4rem, 8vw, 9rem);
+    padding: clamp(5rem, 8vh, 8rem) clamp(4rem, 8vw, 9rem);
   }
 
   .invitation-theme-scope .hero-frame {
@@ -194,7 +222,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .invitation-theme-scope button,
   .invitation-theme-scope .open-invitation-arrow {
     transition: none;
+  }
+
+  .invitation-theme-scope button:hover:not(:disabled),
+  .invitation-theme-scope button:active:not(:disabled) {
+    transform: none;
   }
 }
