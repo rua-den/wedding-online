@@ -29,7 +29,7 @@ export function defaultInvitationContent(): InvitationContent {
     story: {
       eyebrow: "Hành trình yêu thương",
       title: "Chuyện của chúng mình",
-      milestones: wedding.story.map((item) => ({ ...item })),
+      milestones: wedding.story.map((item) => ({ ...item, imageSrc: null })),
     },
     event: {
       eyebrow: "Lễ thành hôn",
