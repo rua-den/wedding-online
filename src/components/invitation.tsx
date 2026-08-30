@@ -6,6 +6,7 @@ import { Countdown } from "./countdown";
 import { FloralMark } from "./floral-mark";
 import { Gallery } from "./gallery";
 import { MediaFrame } from "./media-frame";
+import { OpenInvitationButton } from "./open-invitation-button";
 
 export function Invitation({ media = [], content }: { media?: PublicMediaAsset[]; content?: InvitationContent }) {
   const copy = content ?? defaultInvitationContent();
@@ -19,9 +20,9 @@ export function Invitation({ media = [], content }: { media?: PublicMediaAsset[]
   const gallery = media.filter((asset) => asset.slot === "gallery" && asset.active).sort((a, b) => a.sortOrder - b.sortOrder);
 
   return <main>
-    <section className={`hero section-shell${hero ? " has-hero-media" : ""}`} aria-labelledby="invitation-title">
+    <section id="thiep-cuoi" className={`hero section-shell${hero ? " has-hero-media" : ""}`} aria-labelledby="invitation-title">
       {hero ? <MediaFrame asset={hero} className="hero-media media-frame-slot-hero" alt={hero.alt || `Ảnh cưới của ${couple.shortGroomName} và ${couple.shortBrideName}`} loading="eager" /> : null}
-      <div className="hero-frame"><div className="hero-ornament hero-ornament-left" aria-hidden="true" /><div className="hero-ornament hero-ornament-right" aria-hidden="true" /><p className="eyebrow">{cover.eyebrow}</p><FloralMark /><h1 id="invitation-title"><span>{couple.shortGroomName}</span><em>&amp;</em><span>{couple.shortBrideName}</span></h1><p className="hero-message">{cover.message}</p><div className="hero-date"><span>{heroDate.day}</span><div><b>{heroDate.month}</b><small>{heroDate.year}</small></div></div><a className="scroll-cue" href="#ngay-chung-doi">{cover.scrollCue} <span aria-hidden="true">↓</span></a></div>
+      <div className="hero-frame"><div className="hero-ornament hero-ornament-left" aria-hidden="true" /><div className="hero-ornament hero-ornament-right" aria-hidden="true" /><p className="eyebrow">{cover.eyebrow}</p><FloralMark /><h1 id="invitation-title"><span>{couple.shortGroomName}</span><em>&amp;</em><span>{couple.shortBrideName}</span></h1><p className="hero-message">{cover.message}</p><div className="hero-date"><span>{heroDate.day}</span><div><b>{heroDate.month}</b><small>{heroDate.year}</small></div></div><OpenInvitationButton label={cover.scrollCue} targetId="ngay-chung-doi" /></div>
     </section>
 
     <section className="countdown-section section-shell" id="ngay-chung-doi" aria-labelledby="countdown-title"><p className="eyebrow">{copy.countdown.eyebrow}</p><h2 id="countdown-title">{copy.countdown.title}</h2><p className="section-copy">{event.dateLabel} · {event.timeLabel}</p><Countdown eventTime={event.dateTime} /></section>
