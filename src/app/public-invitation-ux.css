@@ -6,21 +6,35 @@
   justify-content: center;
 }
 
-.invitation-theme-scope button,
-.invitation-theme-scope .map-link {
+.invitation-theme-scope .open-invitation-button,
+.invitation-theme-scope .rsvp-form button,
+.invitation-theme-scope .music-player button,
+.invitation-theme-scope .gallery-close,
+.invitation-theme-scope .gallery-arrow {
   border-radius: 999px;
 }
 
-.invitation-theme-scope button {
+.invitation-theme-scope .open-invitation-button,
+.invitation-theme-scope .rsvp-form button,
+.invitation-theme-scope .music-player button {
   transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
 }
 
-.invitation-theme-scope button:hover:not(:disabled) {
+.invitation-theme-scope .open-invitation-button:hover:not(:disabled),
+.invitation-theme-scope .rsvp-form button:hover:not(:disabled),
+.invitation-theme-scope .music-player button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
-.invitation-theme-scope button:active:not(:disabled) {
+.invitation-theme-scope .open-invitation-button:active:not(:disabled),
+.invitation-theme-scope .rsvp-form button:active:not(:disabled),
+.invitation-theme-scope .music-player button:active:not(:disabled) {
   transform: scale(.985);
+}
+
+.invitation-theme-scope .gallery-grid {
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 .invitation-theme-scope .hero {
@@ -222,13 +236,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .invitation-theme-scope button,
+  .invitation-theme-scope .open-invitation-button,
+  .invitation-theme-scope .rsvp-form button,
+  .invitation-theme-scope .music-player button,
   .invitation-theme-scope .open-invitation-arrow {
     transition: none;
   }
 
-  .invitation-theme-scope button:hover:not(:disabled),
-  .invitation-theme-scope button:active:not(:disabled) {
+  .invitation-theme-scope .open-invitation-button:hover:not(:disabled),
+  .invitation-theme-scope .rsvp-form button:hover:not(:disabled),
+  .invitation-theme-scope .music-player button:hover:not(:disabled),
+  .invitation-theme-scope .open-invitation-button:active:not(:disabled),
+  .invitation-theme-scope .rsvp-form button:active:not(:disabled),
+  .invitation-theme-scope .music-player button:active:not(:disabled) {
     transform: none;
   }
 }
