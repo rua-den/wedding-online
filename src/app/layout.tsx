@@ -9,6 +9,7 @@ import "./globals.css";
 import "./invitation-theme.css";
 import "./mobile-fixes.css";
 import "./story-milestones.css";
+import "./public-invitation-ux.css";
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin", "vietnamese"],
