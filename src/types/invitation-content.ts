@@ -44,6 +44,9 @@ export type InvitationContent = {
     venue: string;
     address: string;
     mapsUrl: string;
+    timeHeading: string;
+    venueHeading: string;
+    directionsLabel: string;
   };
   gallery: {
     eyebrow: string;
@@ -57,6 +60,18 @@ export type InvitationContent = {
     eyebrow: string;
     title: string;
     intro: string;
+    greetingPrefix: string;
+    attendanceQuestion: string;
+    attendingLabel: string;
+    declinedLabel: string;
+    guestCountLabel: string;
+    guestCountSuffix: string;
+    messageLabel: string;
+    messagePlaceholder: string;
+    submitLabel: string;
+    submittingLabel: string;
+    closedMessage: string;
+    successMessage: string;
   };
   footer: {
     title: string;
