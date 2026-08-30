@@ -8,7 +8,7 @@ for (const viewport of [
   { name: "mobile", width: 390, height: 844 },
   { name: "desktop", width: 1280, height: 800 },
 ]) {
-  test(`hero fills the ${viewport.name} viewport and opens the next section`, async ({ page }) => {
+  test(`public invitation scales sections to the ${viewport.name} viewport`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/");
 
@@ -19,13 +19,23 @@ for (const viewport of [
     expect(box!.height).toBeGreaterThanOrEqual(viewport.height - 2);
     expect(box!.width).toBeGreaterThanOrEqual(viewport.width - 2);
 
+    for (const selector of ["#ngay-chung-doi", ".couple-section", ".story-section", ".event-section", ".gallery-section"]) {
+      const sectionBox = await page.locator(selector).boundingBox();
+      expect(sectionBox, `${selector} should be measurable`).not.toBeNull();
+      expect(sectionBox!.height, `${selector} should fill at least one viewport`).toBeGreaterThanOrEqual(viewport.height - 2);
+    }
+
+    const openButton = hero.locator(".open-invitation-button");
+    const radius = await openButton.evaluate((element) => Number.parseFloat(getComputedStyle(element).borderTopLeftRadius));
+    expect(radius).toBeGreaterThanOrEqual(20);
+
     if (viewport.name === "desktop") {
       await expect.poll(() => hero.locator("h1").evaluate((element) => getComputedStyle(element).flexDirection)).toBe("row");
     }
 
     await page.screenshot({ path: `visual-previews/home-${viewport.name}.png`, fullPage: false });
 
-    await hero.locator(".open-invitation-button").click();
+    await openButton.click();
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     const countdownSection = page.locator("#ngay-chung-doi");
     await expect(countdownSection).toBeInViewport();
