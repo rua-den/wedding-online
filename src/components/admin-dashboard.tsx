@@ -2,10 +2,8 @@
 
 import { useMemo, useState } from "react";
 
-import { wedding } from "@/config/wedding";
-import type { AdminInvitation, AdminRsvp, AdminSummary } from "@/lib/sqlite-store";
 import type { MediaAsset } from "@/lib/media-store";
-import type { SiteSettings } from "@/lib/site-settings";
+import type { AdminInvitation, AdminRsvp, AdminSummary } from "@/lib/sqlite-store";
 import { AdminMediaPanel } from "./admin-media-panel";
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -17,29 +15,8 @@ type AdminDashboardProps = {
   rsvps: AdminRsvp[];
   siteUrl: string;
   media?: MediaAsset[];
-  settings?: SiteSettings;
   fetcher?: Fetcher;
 };
-
-type EditableSettings = Pick<SiteSettings, "venue" | "address" | "dateLabel" | "timeLabel" | "mapsUrl">;
-
-const fallbackSettings: EditableSettings = {
-  venue: wedding.event.venue,
-  address: wedding.event.address,
-  dateLabel: wedding.event.dateLabel,
-  timeLabel: wedding.event.timeLabel,
-  mapsUrl: wedding.event.mapsUrl,
-};
-
-function editableSettings(settings?: SiteSettings): EditableSettings {
-  return {
-    venue: settings?.venue ?? fallbackSettings.venue,
-    address: settings?.address ?? fallbackSettings.address,
-    dateLabel: settings?.dateLabel ?? fallbackSettings.dateLabel,
-    timeLabel: settings?.timeLabel ?? fallbackSettings.timeLabel,
-    mapsUrl: settings?.mapsUrl ?? fallbackSettings.mapsUrl,
-  };
-}
 
 const emptySummary: AdminSummary = {
   invitationCount: 0,
@@ -70,7 +47,7 @@ function invitationUrl(siteUrl: string, code: string) {
   return `${siteUrl.replace(/\/$/, "")}/moi/${encodeURIComponent(code)}`;
 }
 
-export function AdminDashboard({ summary: initialSummary, invitations: initialInvitations, rsvps: initialRsvps, siteUrl, media = [], settings, fetcher }: AdminDashboardProps) {
+export function AdminDashboard({ summary: initialSummary, invitations: initialInvitations, rsvps: initialRsvps, siteUrl, media = [], fetcher }: AdminDashboardProps) {
   const request = fetcher ?? fetch;
   const [summary, setSummary] = useState<AdminSummary>(initialSummary ?? emptySummary);
   const [invitations, setInvitations] = useState(initialInvitations);
@@ -87,7 +64,6 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingMaxGuests, setEditingMaxGuests] = useState("2");
-  const [settingsForm, setSettingsForm] = useState<EditableSettings>(() => editableSettings(settings));
 
   const visibleInvitations = useMemo(() => {
     const normalized = invitationQuery.trim().toLocaleLowerCase();
@@ -257,30 +233,6 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
     }
   }
 
-  async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage("");
-    try {
-      const response = await request("/api/admin/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settingsForm),
-      });
-      if (!response.ok) {
-        setMessage(await responseMessage(response, "Không thể lưu thông tin địa điểm."));
-        return;
-      }
-      const body = (await response.json()) as { settings?: SiteSettings };
-      if (body.settings) setSettingsForm(editableSettings(body.settings));
-      setMessage("Đã lưu thông tin địa điểm.");
-    } catch {
-      setMessage("Không thể kết nối. Vui lòng thử lại.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   function updateStatus(value: typeof status) {
     setStatus(value);
     void refresh({ query, status: value });
@@ -306,18 +258,6 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
         <article className="admin-stat"><span>Không tham dự</span><strong>{summary.declinedCount}</strong></article>
         <article className="admin-stat"><span>Chưa phản hồi</span><strong>{summary.pendingCount}</strong></article>
         <article className="admin-stat"><span>Số khách xác nhận</span><strong>{summary.confirmedGuestCount}</strong></article>
-      </section>
-
-      <section className="admin-panel" aria-labelledby="settings-title">
-        <div className="admin-panel-heading"><div><p className="eyebrow">Thông tin buổi lễ</p><h2 id="settings-title">Địa điểm &amp; thời gian</h2></div></div>
-        <form className="admin-settings-grid" onSubmit={saveSettings}>
-          <label>Tên địa điểm<input value={settingsForm.venue} onChange={(event) => setSettingsForm((current) => ({ ...current, venue: event.target.value }))} required maxLength={160} /></label>
-          <label>Địa chỉ<input value={settingsForm.address} onChange={(event) => setSettingsForm((current) => ({ ...current, address: event.target.value }))} required maxLength={240} /></label>
-          <label>Nhãn ngày tổ chức<input value={settingsForm.dateLabel} onChange={(event) => setSettingsForm((current) => ({ ...current, dateLabel: event.target.value }))} required maxLength={160} /></label>
-          <label>Thời gian buổi lễ<input value={settingsForm.timeLabel} onChange={(event) => setSettingsForm((current) => ({ ...current, timeLabel: event.target.value }))} required maxLength={80} /></label>
-          <label>Link Google Maps (HTTPS)<input type="url" value={settingsForm.mapsUrl} onChange={(event) => setSettingsForm((current) => ({ ...current, mapsUrl: event.target.value }))} required maxLength={2048} /></label>
-          <button className="admin-primary-button" type="submit" disabled={busy}>Lưu thông tin địa điểm</button>
-        </form>
       </section>
 
       <AdminMediaPanel initialAssets={media} request={request} />
