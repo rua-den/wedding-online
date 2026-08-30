@@ -89,6 +89,7 @@ const schema = `
   CREATE TABLE IF NOT EXISTS appearance_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     theme_id TEXT NOT NULL,
+    font_id TEXT NOT NULL DEFAULT 'classic-serif',
     updated_at TEXT NOT NULL
   );
 `;
@@ -100,6 +101,14 @@ function migrateMediaAssetCropColumns(connection: SqliteDatabase): void {
   if (!existingColumns.has("focus_x")) connection.exec("ALTER TABLE media_assets ADD COLUMN focus_x REAL NOT NULL DEFAULT 50");
   if (!existingColumns.has("focus_y")) connection.exec("ALTER TABLE media_assets ADD COLUMN focus_y REAL NOT NULL DEFAULT 50");
   if (!existingColumns.has("zoom")) connection.exec("ALTER TABLE media_assets ADD COLUMN zoom REAL NOT NULL DEFAULT 1");
+}
+
+function migrateAppearanceFontColumn(connection: SqliteDatabase): void {
+  const columns = connection.prepare("PRAGMA table_info(appearance_settings)").all() as Array<{ name: string }>;
+  const existingColumns = new Set(columns.map((column) => column.name));
+  if (!existingColumns.has("font_id")) {
+    connection.exec("ALTER TABLE appearance_settings ADD COLUMN font_id TEXT NOT NULL DEFAULT 'classic-serif'");
+  }
 }
 
 function wrapNativeDatabase(native: NativeDatabase, backupDatabase: NativeSqliteModule["backup"]): SqliteDatabase {
@@ -162,6 +171,7 @@ export function initializeDatabase(): void {
   const connection = getDatabase();
   connection.exec(schema);
   migrateMediaAssetCropColumns(connection);
+  migrateAppearanceFontColumn(connection);
 
   if (process.env.NODE_ENV === "development") {
     const now = new Date().toISOString();
