@@ -3,6 +3,9 @@ export type LoveStoryMilestoneContent = {
   title: string;
   description: string;
   imageSrc: string | null;
+  imageFocusX: number;
+  imageFocusY: number;
+  imageZoom: number;
 };
 
 export type InvitationContent = {
