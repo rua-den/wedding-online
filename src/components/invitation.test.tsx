@@ -36,8 +36,8 @@ describe("Invitation", () => {
 
     render(<Invitation content={content} />);
 
-    expect(screen.getByRole("img", { name: "Ảnh mốc Ngày đầu gặp nhau" })).toHaveAttribute(
-      "src",
+    const image = screen.getByRole("img", { name: "Ảnh mốc Ngày đầu gặp nhau" });
+    expect(new URL(image.getAttribute("src")!, "http://localhost").pathname).toBe(
       "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png",
     );
   });
