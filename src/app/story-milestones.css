@@ -1,0 +1,18 @@
+.timeline-image {
+  border: 1px solid rgba(168,132,88,.32);
+  box-shadow: 0 .9rem 2.4rem rgba(62,53,44,.08);
+  height: clamp(11rem,45vw,18rem);
+  margin: 0 0 1.1rem;
+  width: 100%;
+}
+
+.timeline-image .media-frame-image {
+  height: 100%;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .timeline li:has(.timeline-image) {
+    padding-bottom: 3rem;
+  }
+}
