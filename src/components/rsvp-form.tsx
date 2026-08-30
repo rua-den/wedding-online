@@ -2,6 +2,9 @@
 
 import { FormEvent, useState } from "react";
 
+import { defaultInvitationContent } from "@/config/invitation-content";
+import type { InvitationContent } from "@/types/invitation-content";
+
 type Fetcher = typeof fetch;
 
 type RsvpFormProps = {
@@ -9,10 +12,12 @@ type RsvpFormProps = {
   guestName: string;
   maxGuests: number;
   isClosed?: boolean;
+  copy?: InvitationContent["rsvp"];
   fetcher?: Fetcher;
 };
 
-export function RsvpForm({ code, guestName, maxGuests, isClosed = false, fetcher = fetch }: RsvpFormProps) {
+export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, fetcher = fetch }: RsvpFormProps) {
+  const labels = copy ?? defaultInvitationContent().rsvp;
   const [attendance, setAttendance] = useState<"attending" | "declined">("attending");
   const [guestCount, setGuestCount] = useState(1);
   const [message, setMessage] = useState("");
@@ -37,7 +42,7 @@ export function RsvpForm({ code, guestName, maxGuests, isClosed = false, fetcher
         return;
       }
 
-      setStatus({ type: "success", message: body.message ?? "Cảm ơn bạn đã xác nhận tham dự!" });
+      setStatus({ type: "success", message: body.message ?? labels.successMessage });
     } catch {
       setStatus({ type: "error", message: "Không thể kết nối đến máy chủ. Vui lòng thử lại sau." });
     } finally {
@@ -47,20 +52,20 @@ export function RsvpForm({ code, guestName, maxGuests, isClosed = false, fetcher
 
   return (
     <form className="rsvp-form" onSubmit={onSubmit}>
-      <p className="rsvp-greeting">Thân mời <strong>{guestName}</strong></p>
-      {isClosed ? <p className="form-status form-status-error">Đã hết hạn xác nhận tham dự.</p> : null}
+      <p className="rsvp-greeting">{labels.greetingPrefix} <strong>{guestName}</strong></p>
+      {isClosed ? <p className="form-status form-status-error">{labels.closedMessage}</p> : null}
       <fieldset disabled={isClosed || isSubmitting}>
-        <legend>Bạn có thể tham dự cùng chúng mình không?</legend>
-        <label><input checked={attendance === "attending"} name="attendance" onChange={() => setAttendance("attending")} type="radio" /> Sẽ tham dự</label>
-        <label><input checked={attendance === "declined"} name="attendance" onChange={() => setAttendance("declined")} type="radio" /> Rất tiếc, không thể tham dự</label>
-        <label htmlFor="guest-count">Số người tham dự</label>
-        <select aria-label="Số người tham dự" disabled={attendance === "declined"} id="guest-count" onChange={(event) => setGuestCount(Number(event.target.value))} value={attendance === "declined" ? 0 : guestCount}>
-          {Array.from({ length: maxGuests }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count} người</option>)}
-          {attendance === "declined" ? <option value={0}>0 người</option> : null}
+        <legend>{labels.attendanceQuestion}</legend>
+        <label><input checked={attendance === "attending"} name="attendance" onChange={() => setAttendance("attending")} type="radio" /> {labels.attendingLabel}</label>
+        <label><input checked={attendance === "declined"} name="attendance" onChange={() => setAttendance("declined")} type="radio" /> {labels.declinedLabel}</label>
+        <label htmlFor="guest-count">{labels.guestCountLabel}</label>
+        <select aria-label={labels.guestCountLabel} disabled={attendance === "declined"} id="guest-count" onChange={(event) => setGuestCount(Number(event.target.value))} value={attendance === "declined" ? 0 : guestCount}>
+          {Array.from({ length: maxGuests }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count} {labels.guestCountSuffix}</option>)}
+          {attendance === "declined" ? <option value={0}>0 {labels.guestCountSuffix}</option> : null}
         </select>
-        <label htmlFor="rsvp-message">Lời nhắn</label>
-        <textarea id="rsvp-message" maxLength={500} onChange={(event) => setMessage(event.target.value)} placeholder="Gửi lời chúc tới Huy & Nhi" value={message} />
-        <button type="submit">{isSubmitting ? "Đang gửi..." : "Gửi xác nhận"}</button>
+        <label htmlFor="rsvp-message">{labels.messageLabel}</label>
+        <textarea aria-label={labels.messageLabel} id="rsvp-message" maxLength={500} onChange={(event) => setMessage(event.target.value)} placeholder={labels.messagePlaceholder} value={message} />
+        <button type="submit">{isSubmitting ? labels.submittingLabel : labels.submitLabel}</button>
       </fieldset>
       {status.type !== "idle" ? <p className={`form-status form-status-${status.type}`} role="status">{status.message}</p> : null}
     </form>
