@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
-import type { MediaAsset, MediaSlot } from "@/lib/media-store";
+import type { MediaSlot, PublicMediaAsset } from "@/lib/media-store";
 import { MediaFrame } from "./media-frame";
 
 export type MediaCropValues = {
@@ -13,7 +13,7 @@ export type MediaCropValues = {
 };
 
 type MediaCropEditorProps = {
-  asset: MediaAsset;
+  asset: PublicMediaAsset;
   onSave: (values: MediaCropValues) => void | Promise<void>;
   onClose: () => void;
   restoreFocusTarget?: HTMLElement | null;
@@ -35,7 +35,7 @@ function clamp(value: number, minimum: number, maximum: number, fallback = minim
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function cropValues(asset: Pick<MediaAsset, "focusX" | "focusY" | "zoom">): MediaCropValues {
+function cropValues(asset: Pick<PublicMediaAsset, "focusX" | "focusY" | "zoom">): MediaCropValues {
   return {
     focusX: clamp(asset.focusX, 0, 100, 50),
     focusY: clamp(asset.focusY, 0, 100, 50),
@@ -45,33 +45,23 @@ function cropValues(asset: Pick<MediaAsset, "focusX" | "focusY" | "zoom">): Medi
 
 function publicSlotLabel(slot: MediaSlot) {
   switch (slot) {
-    case "hero":
-      return "Trang bìa";
+    case "hero": return "Trang bìa";
     case "groom":
-    case "bride":
-      return "Cô dâu & chú rể";
-    case "story":
-      return "Hành trình yêu thương";
-    case "venue":
-      return "Lễ thành hôn";
-    case "gallery":
-      return "Những khoảnh khắc";
+    case "bride": return "Cô dâu & chú rể";
+    case "story": return "Hành trình yêu thương";
+    case "venue": return "Lễ thành hôn";
+    case "gallery": return "Những khoảnh khắc";
   }
 }
 
 function previewClass(slot: MediaSlot) {
   switch (slot) {
-    case "hero":
-      return "media-frame-slot-hero";
+    case "hero": return "media-frame-slot-hero";
     case "groom":
-    case "bride":
-      return "media-frame-slot-portrait";
-    case "story":
-      return "media-frame-slot-story";
-    case "venue":
-      return "media-frame-slot-venue";
-    case "gallery":
-      return "media-frame-slot-gallery";
+    case "bride": return "media-frame-slot-portrait";
+    case "story": return "media-frame-slot-story";
+    case "venue": return "media-frame-slot-venue";
+    case "gallery": return "media-frame-slot-gallery";
   }
 }
 
@@ -90,9 +80,7 @@ export function MediaCropEditor({ asset, onSave, onClose, restoreFocusTarget }: 
   const [values, setValues] = useState<MediaCropValues>(() => cropValues(asset));
   const [heroViewport, setHeroViewport] = useState<HeroViewport>("mobile");
 
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (!capturedFocusRef.current) {
@@ -111,9 +99,7 @@ export function MediaCropEditor({ asset, onSave, onClose, restoreFocusTarget }: 
 
       const dialog = dialogRef.current;
       if (!dialog) return;
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled])",
-      ));
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled])"));
       if (focusable.length === 0) {
         event.preventDefault();
         dialog.focus();
@@ -122,11 +108,9 @@ export function MediaCropEditor({ asset, onSave, onClose, restoreFocusTarget }: 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
-        event.preventDefault();
-        last.focus();
+        event.preventDefault(); last.focus();
       } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
-        event.preventDefault();
-        first.focus();
+        event.preventDefault(); first.focus();
       }
     };
 
@@ -138,23 +122,13 @@ export function MediaCropEditor({ asset, onSave, onClose, restoreFocusTarget }: 
   }, []);
 
   function updateValue(key: keyof MediaCropValues, value: number) {
-    setValues((current) => ({
-      ...current,
-      [key]: key === "zoom" ? clamp(value, 1, 3) : clamp(value, 0, 100),
-    }));
+    setValues((current) => ({ ...current, [key]: key === "zoom" ? clamp(value, 1, 3) : clamp(value, 0, 100) }));
   }
 
   function beginDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      width: rect.width || 390,
-      height: rect.height || 300,
-      values,
-    };
+    dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, width: rect.width || 390, height: rect.height || 300, values };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
 
@@ -173,62 +147,26 @@ export function MediaCropEditor({ asset, onSave, onClose, restoreFocusTarget }: 
   }
 
   const isHero = asset.slot === "hero";
-  const frameClassName = isHero
-    ? `media-crop-editor-frame media-crop-editor-frame-hero-${heroViewport}`
-    : `media-crop-editor-frame media-crop-editor-frame-${asset.slot}`;
+  const frameClassName = isHero ? `media-crop-editor-frame media-crop-editor-frame-hero-${heroViewport}` : `media-crop-editor-frame media-crop-editor-frame-${asset.slot}`;
   const sharedFrameClassName = `${previewClass(asset.slot)} ${frameClassName}`;
 
   return (
     <div className="media-crop-editor-backdrop" role="presentation">
-      <div
-        ref={dialogRef}
-        className="media-crop-editor"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-      >
+      <div ref={dialogRef} className="media-crop-editor" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="media-crop-editor-heading">
-          <div>
-            <p className="eyebrow">Căn khung ảnh</p>
-            <h2 id={titleId}>{asset.alt || publicSlotLabel(asset.slot)}</h2>
-            <p className="media-crop-editor-section">Hiển thị tại: {publicSlotLabel(asset.slot)}</p>
-          </div>
+          <div><p className="eyebrow">Căn khung ảnh</p><h2 id={titleId}>{asset.alt || publicSlotLabel(asset.slot)}</h2><p className="media-crop-editor-section">Hiển thị tại: {publicSlotLabel(asset.slot)}</p></div>
           <button className="media-crop-editor-close" type="button" onClick={onClose} aria-label="Đóng">×</button>
         </div>
 
-        {isHero ? (
-          <div className="media-crop-editor-modes" role="group" aria-label="Kích thước khung trang bìa">
-            <button type="button" className="admin-secondary-button" aria-pressed={heroViewport === "mobile"} onClick={() => setHeroViewport("mobile")}>Mobile</button>
-            <button type="button" className="admin-secondary-button" aria-pressed={heroViewport === "desktop"} onClick={() => setHeroViewport("desktop")}>Desktop</button>
-          </div>
-        ) : null}
+        {isHero ? <div className="media-crop-editor-modes" role="group" aria-label="Kích thước khung trang bìa">
+          <button type="button" className="admin-secondary-button" aria-pressed={heroViewport === "mobile"} onClick={() => setHeroViewport("mobile")}>Mobile</button>
+          <button type="button" className="admin-secondary-button" aria-pressed={heroViewport === "desktop"} onClick={() => setHeroViewport("desktop")}>Desktop</button>
+        </div> : null}
 
-        <div
-          className="media-crop-editor-preview"
-          data-testid="media-crop-preview"
-          onPointerDown={beginDrag}
-          onPointerMove={moveDrag}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          onLostPointerCapture={() => { dragRef.current = null; }}
-        >
-          <div
-            className={`media-crop-editor-preview-frame ${isHero ? `is-${heroViewport}` : "is-single"}`}
-            data-testid="media-crop-preview-frame"
-          >
-            <MediaFrame
-              asset={{ ...asset, ...values }}
-              className={sharedFrameClassName}
-              alt={asset.alt || publicSlotLabel(asset.slot)}
-            />
-            {isHero ? (
-              <div className="media-crop-editor-hero-copy" aria-hidden="true">
-                <p>Huy &amp; Nhi</p>
-                <strong>Ngày mình chung đôi</strong>
-                <span>20 · 10 · 2026</span>
-              </div>
-            ) : null}
+        <div className="media-crop-editor-preview" data-testid="media-crop-preview" onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={() => { dragRef.current = null; }}>
+          <div className={`media-crop-editor-preview-frame ${isHero ? `is-${heroViewport}` : "is-single"}`} data-testid="media-crop-preview-frame">
+            <MediaFrame asset={{ ...asset, ...values }} className={sharedFrameClassName} alt={asset.alt || publicSlotLabel(asset.slot)} />
+            {isHero ? <div className="media-crop-editor-hero-copy" aria-hidden="true"><p>Huy &amp; Nhi</p><strong>Ngày mình chung đôi</strong><span>20 · 10 · 2026</span></div> : null}
           </div>
           <p className="media-crop-editor-hint">Kéo ảnh để thay đổi vùng tập trung</p>
         </div>
@@ -240,6 +178,7 @@ export function MediaCropEditor({ asset, onSave, onClose, restoreFocusTarget }: 
         </div>
 
         <div className="media-crop-editor-actions">
+          <button className="admin-secondary-button" type="button" onClick={() => setValues({ focusX: 50, focusY: 50, zoom: 1 })}>Đặt lại</button>
           <button className="admin-secondary-button" type="button" onClick={onClose}>Hủy</button>
           <button className="admin-primary-button" type="button" onClick={() => void onSave(values)}>Lưu căn chỉnh</button>
         </div>
