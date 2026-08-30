@@ -11,7 +11,7 @@ export function OpenInvitationButton({ label, targetId }: { label: string; targe
     target.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
   }
 
-  return <button type="button" className="open-invitation-button" onClick={openInvitation}>
+  return <button type="button" className="open-invitation-button scroll-cue" onClick={openInvitation}>
     <span>{label}</span>
     <span aria-hidden="true" className="open-invitation-arrow">↓</span>
   </button>;
