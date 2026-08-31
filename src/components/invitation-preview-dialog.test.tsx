@@ -15,6 +15,7 @@ describe("InvitationPreviewDialog", () => {
     const iframe = screen.getByTitle("Xem trước toàn bộ thiệp");
     expect(iframe).toHaveAttribute("src", "/?preview=3");
     expect(iframe).toHaveAttribute("sandbox", "allow-same-origin allow-scripts allow-forms");
+    expect(iframe).toHaveAttribute("allow", "autoplay");
     expect(screen.getByTestId("invitation-preview-device")).toHaveClass("is-mobile");
     expect(screen.getByRole("link", { name: "Mở tab mới" })).toHaveAttribute("href", "/?preview=3");
   });
