@@ -113,6 +113,7 @@ function InvitationPreviewDialogContent({ onClose, refreshKey, previewUrl, suspe
             title="Xem trước toàn bộ thiệp"
             src={source}
             sandbox="allow-same-origin allow-scripts allow-forms"
+            allow="autoplay"
             width={size.width}
             height={size.height}
             style={{ width: `${size.width}px`, height: `${size.height}px` }}
