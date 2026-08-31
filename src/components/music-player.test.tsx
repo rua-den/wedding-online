@@ -34,4 +34,17 @@ describe("MusicPlayer", () => {
     fireEvent.canPlay(audio!);
     await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
   });
+
+  it("retries blocked autoplay on the first interaction anywhere on the page", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play")
+      .mockRejectedValueOnce(new DOMException("Autoplay blocked", "NotAllowedError"))
+      .mockResolvedValue(undefined);
+
+    render(<MusicPlayer settings={settings} />);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Tạm dừng Wedding song" })).toBeInTheDocument();
+  });
 });
