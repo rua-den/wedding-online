@@ -4,13 +4,15 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
 }
 
 .invitation-theme-scope .open-invitation-button,
 .invitation-theme-scope .rsvp-form button,
 .invitation-theme-scope .music-player button,
 .invitation-theme-scope .gallery-close,
-.invitation-theme-scope .gallery-arrow {
+.invitation-theme-scope .gallery-arrow,
+.invitation-theme-scope .section-jump-button {
   border-radius: 999px;
 }
 
@@ -30,6 +32,37 @@
 .invitation-theme-scope .rsvp-form button:active:not(:disabled),
 .invitation-theme-scope .music-player button:active:not(:disabled) {
   transform: scale(.985);
+}
+
+.invitation-theme-scope .section-jump-button {
+  align-items: center;
+  background: var(--invitation-action-surface);
+  border: 1px solid var(--invitation-border-strong);
+  bottom: max(.9rem, env(safe-area-inset-bottom));
+  box-shadow: 0 .45rem 1.2rem rgb(0 0 0 / .12);
+  color: var(--invitation-action-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.15rem;
+  height: 2.85rem;
+  justify-content: center;
+  left: 50%;
+  line-height: 1;
+  padding: 0;
+  position: absolute;
+  transform: translateX(-50%);
+  transition: box-shadow .2s ease, opacity .2s ease;
+  width: 2.85rem;
+  z-index: 6;
+}
+
+.invitation-theme-scope .section-jump-button:hover {
+  box-shadow: 0 .6rem 1.5rem rgb(0 0 0 / .18);
+}
+
+.invitation-theme-scope .section-jump-button:active {
+  opacity: .78;
 }
 
 .invitation-theme-scope .gallery-grid {
@@ -239,6 +272,7 @@
   .invitation-theme-scope .open-invitation-button,
   .invitation-theme-scope .rsvp-form button,
   .invitation-theme-scope .music-player button,
+  .invitation-theme-scope .section-jump-button,
   .invitation-theme-scope .open-invitation-arrow {
     transition: none;
   }
