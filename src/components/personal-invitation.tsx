@@ -6,8 +6,10 @@ import { defaultInvitationContent } from "@/config/invitation-content";
 import type { PublicMediaAsset } from "@/lib/media-store";
 import type { InvitationContent } from "@/types/invitation-content";
 import { Invitation } from "./invitation";
+import { InvitationFooter } from "./invitation-footer";
 import { OpenInvitationButton } from "./open-invitation-button";
 import { RsvpForm } from "./rsvp-form";
+import { SectionJumpButton } from "./section-jump-button";
 
 type InvitationData = { guestName: string; maxGuests: number };
 const invitationLoadError = "Không thể tải thiệp mời. Vui lòng thử lại sau.";
@@ -42,14 +44,16 @@ export function PersonalInvitation({ code, media = [], content }: { code: string
         <OpenInvitationButton label={copy.cover.scrollCue} targetId="thiep-cuoi" />
       </div>
     </section>
-    <Invitation media={media} content={copy} />
-    <section className="rsvp-section section-shell" aria-labelledby="rsvp-title">
+    <Invitation media={media} content={copy} nextAfterGalleryTargetId="xac-nhan-tham-du" showFooter={false} />
+    <section id="xac-nhan-tham-du" className="rsvp-section section-shell" aria-labelledby="rsvp-title">
       <div className="rsvp-card">
         <p className="eyebrow">{copy.rsvp.eyebrow}</p>
         <h2 id="rsvp-title">{copy.rsvp.title}</h2>
         <p>{copy.rsvp.intro} {new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(copy.event.rsvpDeadline))}.</p>
         <RsvpForm code={code} guestName={invitation.guestName} isClosed={isClosed} maxGuests={invitation.maxGuests} copy={copy.rsvp} />
       </div>
+      <SectionJumpButton targetId="loi-cam-on" label="lời cảm ơn" />
     </section>
+    <InvitationFooter title={copy.footer.title} message={copy.footer.message} />
   </>;
 }
