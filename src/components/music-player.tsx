@@ -15,24 +15,57 @@ export function MusicPlayer({ settings }: { settings: MusicSettings }) {
     if (!audio) return;
 
     let cancelled = false;
+    let activationListenersActive = true;
+
+    const removeActivationListeners = () => {
+      if (!activationListenersActive) return;
+      activationListenersActive = false;
+      window.removeEventListener("pointerdown", retryFromInteraction, true);
+      window.removeEventListener("touchend", retryFromInteraction, true);
+      window.removeEventListener("keydown", retryFromInteraction, true);
+      window.removeEventListener("click", retryFromInteraction, true);
+    };
+
     const tryPlay = async () => {
       try {
         await audio.play();
-        if (!cancelled) setPlaying(true);
+        if (!cancelled) {
+          setPlaying(true);
+          removeActivationListeners();
+        }
       } catch {
         if (!cancelled) setPlaying(false);
       }
     };
 
-    void tryPlay();
+    function retryFromInteraction() {
+      void tryPlay();
+    }
+
     const retryWhenReady = () => { void tryPlay(); };
+    const retryWhenVisible = () => {
+      if (document.visibilityState === "visible") void tryPlay();
+    };
+
+    void tryPlay();
     audio.addEventListener("canplay", retryWhenReady, { once: true });
     audio.addEventListener("loadeddata", retryWhenReady, { once: true });
+    window.addEventListener("pointerdown", retryFromInteraction, { capture: true, passive: true });
+    window.addEventListener("touchend", retryFromInteraction, { capture: true, passive: true });
+    window.addEventListener("keydown", retryFromInteraction, true);
+    window.addEventListener("click", retryFromInteraction, true);
+    window.addEventListener("focus", retryWhenVisible);
+    window.addEventListener("pageshow", retryWhenVisible);
+    document.addEventListener("visibilitychange", retryWhenVisible);
 
     return () => {
       cancelled = true;
       audio.removeEventListener("canplay", retryWhenReady);
       audio.removeEventListener("loadeddata", retryWhenReady);
+      removeActivationListeners();
+      window.removeEventListener("focus", retryWhenVisible);
+      window.removeEventListener("pageshow", retryWhenVisible);
+      document.removeEventListener("visibilitychange", retryWhenVisible);
     };
   }, [settings.enabled, settings.src]);
 
