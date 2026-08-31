@@ -19,7 +19,7 @@ for (const viewport of [
     expect(box!.height).toBeGreaterThanOrEqual(viewport.height - 2);
     expect(box!.width).toBeGreaterThanOrEqual(viewport.width - 2);
 
-    for (const selector of ["#ngay-chung-doi", ".couple-section", ".story-section", ".event-section", ".gallery-section"]) {
+    for (const selector of ["#ngay-chung-doi", "#doi-uyen-uong", "#chuyen-tinh", "#le-cuoi", "#album-anh"]) {
       const sectionBox = await page.locator(selector).boundingBox();
       expect(sectionBox, `${selector} should be measurable`).not.toBeNull();
       expect(sectionBox!.height, `${selector} should fill at least one viewport`).toBeGreaterThanOrEqual(viewport.height - 2);
@@ -46,6 +46,22 @@ for (const viewport of [
     expect(values.join("")).not.toBe("00000000");
     expect(values.join(" ")).not.toContain("NaN");
     await page.screenshot({ path: `visual-previews/countdown-${viewport.name}.png`, fullPage: false });
+
+    for (const step of [
+      { from: "#ngay-chung-doi", label: "Đi tới phần cô dâu chú rể", to: "#doi-uyen-uong" },
+      { from: "#doi-uyen-uong", label: "Đi tới chuyện tình", to: "#chuyen-tinh" },
+      { from: "#chuyen-tinh", label: "Đi tới thông tin lễ cưới", to: "#le-cuoi" },
+      { from: "#le-cuoi", label: "Đi tới album ảnh cưới", to: "#album-anh" },
+      { from: "#album-anh", label: "Đi tới lời cảm ơn", to: "#loi-cam-on" },
+    ]) {
+      const source = page.locator(step.from);
+      const jumpButton = source.getByRole("button", { name: step.label });
+      await expect(jumpButton).toBeVisible();
+      const jumpRadius = await jumpButton.evaluate((element) => Number.parseFloat(getComputedStyle(element).borderTopLeftRadius));
+      expect(jumpRadius).toBeGreaterThanOrEqual(20);
+      await jumpButton.click();
+      await expect(page.locator(step.to)).toBeInViewport();
+    }
   });
 }
 
@@ -64,4 +80,12 @@ test("personal invitation opens from a full-screen guest cover into the wedding 
   await cover.locator(".open-invitation-button").click();
   await expect(page.locator("#thiep-cuoi")).toBeInViewport();
   await page.screenshot({ path: "visual-previews/personal-open-mobile.png", fullPage: false });
+
+  const gallerySection = page.locator("#album-anh");
+  await gallerySection.scrollIntoViewIfNeeded();
+  await gallerySection.getByRole("button", { name: "Đi tới xác nhận tham dự" }).click();
+  const rsvpSection = page.locator("#xac-nhan-tham-du");
+  await expect(rsvpSection).toBeInViewport();
+  await rsvpSection.getByRole("button", { name: "Đi tới lời cảm ơn" }).click();
+  await expect(page.locator("#loi-cam-on")).toBeInViewport();
 });
