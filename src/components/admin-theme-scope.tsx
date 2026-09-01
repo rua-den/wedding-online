@@ -71,10 +71,6 @@ export function AdminThemeScope({
     return () => window.removeEventListener(ADMIN_APPEARANCE_PREVIEW_EVENT, onPreview);
   }, []);
 
-  useEffect(() => {
-    setAppearance({ themeId, fontId });
-  }, [fontId, themeId]);
-
   return <div
     className="admin-theme-scope"
     data-admin-theme={appearance.themeId}
