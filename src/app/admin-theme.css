@@ -1,0 +1,62 @@
+/* Admin appearance mirrors the persisted invitation theme tokens. */
+.admin-theme-scope {
+  min-height: 100svh;
+  min-height: 100dvh;
+  background: var(--ivory);
+  color: var(--ink);
+}
+
+.admin-theme-scope .admin-shell,
+.admin-theme-scope .admin-login-shell {
+  background: var(--ivory);
+  color: var(--ink);
+}
+
+.admin-theme-scope .admin-panel,
+.admin-theme-scope .admin-stat,
+.admin-theme-scope .admin-login-card,
+.admin-theme-scope .invitation-preview-dialog,
+.admin-theme-scope .media-crop-editor-dialog,
+.admin-theme-scope [class*="_section_"],
+.admin-theme-scope [class*="_card_"],
+.admin-theme-scope [class*="_fontCard_"],
+.admin-theme-scope [class*="_actions_"],
+.admin-theme-scope [class*="_musicPanel_"] {
+  background-color: var(--paper);
+  color: var(--ink);
+  border-color: var(--admin-border-soft);
+}
+
+.admin-theme-scope input,
+.admin-theme-scope select,
+.admin-theme-scope textarea {
+  background-color: var(--admin-input-surface);
+  border-color: var(--admin-input-border);
+  color: var(--ink);
+}
+
+.admin-theme-scope input::placeholder,
+.admin-theme-scope textarea::placeholder {
+  color: var(--muted);
+}
+
+.admin-theme-scope button,
+.admin-theme-scope .admin-primary-button,
+.admin-theme-scope .admin-secondary-button {
+  border-color: var(--admin-border-medium);
+}
+
+.admin-theme-scope .admin-primary-button,
+.admin-theme-scope button[type="submit"] {
+  background-color: var(--admin-action-surface);
+  color: var(--admin-action-text);
+}
+
+.admin-theme-scope :focus-visible {
+  outline-color: var(--admin-focus-ring);
+}
+
+/* Product-wide button shape: every native button is rounded. */
+button {
+  border-radius: 999px !important;
+}
