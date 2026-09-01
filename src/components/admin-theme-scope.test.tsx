@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AdminThemeScope, previewAdminAppearance } from "./admin-theme-scope";
@@ -18,13 +18,13 @@ describe("AdminThemeScope", () => {
     expect(scope.style.getPropertyValue("--admin-action-surface")).toBe("#c2a15b");
   });
 
-  it("live previews a newly selected admin theme and font", () => {
+  it("live previews a newly selected admin theme and font", async () => {
     render(<AdminThemeScope themeId="ivory-gold" fontId="classic-serif"><span>Admin</span></AdminThemeScope>);
     const scope = screen.getByText("Admin").parentElement!;
 
     previewAdminAppearance({ themeId: "sage-garden", fontId: "playfair-display" });
 
-    expect(scope).toHaveAttribute("data-admin-theme", "sage-garden");
+    await waitFor(() => expect(scope).toHaveAttribute("data-admin-theme", "sage-garden"));
     expect(scope).toHaveAttribute("data-admin-font", "playfair-display");
     expect(scope.style.getPropertyValue("--ivory")).toBe("#fbf8ef");
     expect(scope.style.getPropertyValue("--champagne-deep")).toBe("#66785f");
