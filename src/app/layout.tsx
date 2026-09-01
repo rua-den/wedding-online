@@ -16,6 +16,7 @@ import "./invitation-theme.css";
 import "./mobile-fixes.css";
 import "./story-milestones.css";
 import "./public-invitation-ux.css";
+import "./admin-theme.css";
 
 const cormorantGaramond = Cormorant_Garamond({ subsets: ["latin", "vietnamese"], variable: "--font-cormorant-garamond", display: "swap" });
 const playfairDisplay = Playfair_Display({ subsets: ["latin", "vietnamese"], variable: "--font-playfair-display", display: "swap" });
