@@ -11,6 +11,7 @@ import {
   type InvitationThemeId,
 } from "@/config/invitation-themes";
 import type { AppearanceSettings } from "@/lib/appearance-store";
+import { previewAdminAppearance } from "./admin-theme-scope";
 import { InvitationPreviewDialog } from "./invitation-preview-dialog";
 import styles from "./admin-appearance-editor.module.css";
 
@@ -55,11 +56,13 @@ export function AdminAppearanceEditor({
 
   function selectTheme(themeId: InvitationThemeId) {
     setPendingThemeId(themeId);
+    previewAdminAppearance({ themeId, fontId: pendingFontId });
     setMessage("");
   }
 
   function selectFont(fontId: InvitationFontId) {
     setPendingFontId(fontId);
+    previewAdminAppearance({ themeId: pendingThemeId, fontId });
     setMessage("");
   }
 
@@ -70,12 +73,12 @@ export function AdminAppearanceEditor({
   }
 
   function previewTheme(themeId: InvitationThemeId) {
-    setPendingThemeId(themeId);
+    selectTheme(themeId);
     openPreview();
   }
 
   function previewFont(fontId: InvitationFontId) {
-    setPendingFontId(fontId);
+    selectFont(fontId);
     openPreview();
   }
 
@@ -100,6 +103,7 @@ export function AdminAppearanceEditor({
       setPendingThemeId(savedTheme);
       setPersistedFontId(savedFont);
       setPendingFontId(savedFont);
+      previewAdminAppearance({ themeId: savedTheme, fontId: savedFont });
       setInvalidStoredThemeId(undefined);
       setInvalidStoredFontId(undefined);
       setMessage("Đã lưu giao diện thiệp.");
@@ -116,7 +120,7 @@ export function AdminAppearanceEditor({
       <div>
         <p>Appearance</p>
         <h1>Giao diện thiệp</h1>
-        <span>Theme và font áp dụng cho thiệp chung lẫn link khách mời. Chọn thử trước; thay đổi chỉ được áp dụng sau khi bấm “Lưu giao diện”.</span>
+        <span>Admin xem trước trực tiếp theo theme và font đang chọn. Thiệp public chỉ đổi sau khi bấm “Lưu giao diện”.</span>
       </div>
       <a href={pendingPreviewUrl} target="_blank" rel="noreferrer">Mở preview ↗</a>
     </header>
