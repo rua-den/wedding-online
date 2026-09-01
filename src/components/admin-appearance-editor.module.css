@@ -10,7 +10,7 @@
 .sectionHeading h2 { font-size:clamp(1.7rem,4vw,2.5rem); margin:0; }
 .sectionHeading span { color:var(--muted); font-family:Arial,Helvetica,sans-serif; font-size:.88rem; line-height:1.55; max-width:35rem; text-align:right; }
 .grid,.fontGrid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); }
-.card,.fontCard { background:var(--paper); border:1px solid rgba(168,132,88,.38); display:flex; flex-direction:column; min-height:17rem; padding:1.1rem; position:relative; }
+.card,.fontCard { background:var(--paper); border:1px solid var(--admin-border-medium, var(--champagne)); display:flex; flex-direction:column; min-height:17rem; padding:1.1rem; position:relative; }
 .fontCard { min-height:19rem; }
 .cardSelected { border:2px solid var(--champagne-deep); padding:calc(1.1rem - 1px); }
 .card label,.fontCard label { cursor:pointer; display:flex; flex:1; flex-direction:column; }
@@ -20,23 +20,23 @@
 .state { color:var(--champagne-deep); font-family:Arial,Helvetica,sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 .description { color:var(--muted); font-family:Arial,Helvetica,sans-serif; font-size:.9rem; line-height:1.55; margin:1rem 0; }
 .swatches { display:flex; gap:.4rem; margin:auto 0 1rem; }
-.swatch { border:1px solid rgba(62,53,44,.18); border-radius:999px; height:1.8rem; width:1.8rem; }
+.swatch { border:1px solid var(--admin-border-soft, var(--champagne)); border-radius:999px; height:1.8rem; width:1.8rem; }
 .fontSample { display:block; font-size:clamp(2rem,4vw,2.7rem); line-height:1.05; margin:1.35rem 0 .8rem; }
 .fontVietnamese { color:var(--ink); display:block; font-size:1rem; line-height:1.45; }
-.preview,.previewAll { background:transparent; border:1px solid var(--champagne); cursor:pointer; font-family:Arial,Helvetica,sans-serif; font-size:.78rem; font-weight:700; padding:.75rem .9rem; }
-.actions { align-items:center; background:var(--paper); border:1px solid rgba(168,132,88,.35); bottom:1rem; display:flex; gap:1rem; justify-content:flex-end; margin-top:1.25rem; padding:1rem; position:sticky; z-index:2; }
+.preview,.previewAll { background:transparent; border:1px solid var(--champagne); color:var(--ink); cursor:pointer; font-family:Arial,Helvetica,sans-serif; font-size:.78rem; font-weight:700; padding:.75rem .9rem; }
+.actions { align-items:center; background:var(--paper); border:1px solid var(--admin-border-soft, var(--champagne)); bottom:1rem; display:flex; gap:1rem; justify-content:flex-end; margin-top:1.25rem; padding:1rem; position:sticky; z-index:2; }
 .dirty { color:var(--champagne-deep); font-family:Arial,Helvetica,sans-serif; font-size:.8rem; font-weight:700; margin-right:auto; }
 .status { color:var(--muted); font-family:Arial,Helvetica,sans-serif; font-size:.82rem; }
-.save { background:var(--ink); border:0; color:#fff9ef; cursor:pointer; font-family:Arial,Helvetica,sans-serif; font-size:.78rem; font-weight:700; padding:.9rem 1.1rem; }
+.save { background:var(--admin-action-surface, var(--ink)); border:0; color:var(--admin-action-text, #fff9ef); cursor:pointer; font-family:Arial,Helvetica,sans-serif; font-size:.78rem; font-weight:700; padding:.9rem 1.1rem; }
 .save:disabled { cursor:not-allowed; opacity:.55; }
 .musicShell { padding-top:0; }
-.musicPanel { background:var(--paper); border:1px solid rgba(168,132,88,.38); display:grid; gap:1rem; padding:1.2rem; }
+.musicPanel { background:var(--paper); border:1px solid var(--admin-border-medium, var(--champagne)); display:grid; gap:1rem; padding:1.2rem; }
 .musicState { display:flex; flex-direction:column; gap:.25rem; }
 .musicState strong { font-size:1.25rem; font-weight:400; }
 .musicState span,.musicField span,.musicToggle { color:var(--muted); font-family:Arial,Helvetica,sans-serif; font-size:.86rem; line-height:1.5; }
 .musicRow { display:grid; gap:1rem; grid-template-columns:minmax(12rem,2fr) repeat(2,minmax(10rem,1fr)); }
 .musicField { display:grid; gap:.45rem; }
-.musicField input { background:#fff; border:1px solid var(--champagne); color:var(--ink); font:inherit; padding:.8rem; }
+.musicField input { background:var(--admin-input-surface, var(--paper)); border:1px solid var(--admin-input-border, var(--champagne)); color:var(--ink); font:inherit; padding:.8rem; }
 .musicToggle { align-items:center; display:flex; gap:.5rem; }
 .musicButtons { display:flex; flex-wrap:wrap; gap:.65rem; }
 .musicButtons label { display:inline-flex; align-items:center; }
