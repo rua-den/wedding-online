@@ -4,27 +4,27 @@
 
 [English](README.md) · **Tiếng Việt**
 
-Website thiệp cưới responsive dùng Next.js App Router. Trang `/` là thiệp chung; mỗi khách nhận một link riêng dạng `/moi/<code>` với lời mời cá nhân hóa và RSVP. Link mời, RSVP, nội dung có thể chỉnh sửa, theme giao diện và metadata ảnh được lưu trong SQLite.
+Website thiệp cưới responsive dùng Next.js App Router. `/` là thiệp chung; mỗi khách nhận link riêng `/moi/<code>` với lời mời cá nhân hóa và RSVP. Link mời, RSVP, nội dung, giao diện, nhạc nền và metadata media được lưu trong SQLite.
 
 ## Tính năng
 
-- Thiệp cưới chung tại `/`.
-- Link riêng `/moi/<code>` cho từng khách kèm RSVP.
-- Admin có mật khẩu tại `/admin`.
-- Quản lý link mời: tạo, sửa, bật/tắt, xoá vĩnh viễn, tìm kiếm và lọc.
-- Dashboard RSVP với bộ lọc trạng thái và xuất CSV.
-- Editor nội dung thiệp theo từng section tại `/admin/edit`.
-- Chọn theme toàn bộ thiệp tại `/admin/appearance`, có 5 preset và preview mobile/desktop.
-- Quản lý ảnh cover, cô dâu/chú rể, chuyện tình, địa điểm và gallery.
-- Căn ảnh không phá huỷ; `focusX`, `focusY`, `zoom` được lưu trong SQLite.
-- Script seed khách từ CSV và backup SQLite.
-- Hỗ trợ deploy VPS bằng Node.js + PM2 + Nginx.
+- Thiệp chung và link khách mời riêng kèm RSVP.
+- Admin có mật khẩu.
+- CRUD link mời, tìm kiếm/lọc, lọc RSVP và xuất CSV.
+- Editor nội dung theo section tại `/admin/edit`.
+- 5 theme màu và 11 font preset hỗ trợ tiếng Việt tại `/admin/appearance`.
+- Giao diện admin đổi theo theme/font đang chọn của thiệp.
+- Upload và điều khiển nhạc nền MP3.
+- Quản lý ảnh và căn focus/zoom không phá huỷ, gồm cả ảnh milestone chuyện tình.
+- Các section public tối thiểu full viewport và có nút nhảy section.
+- Script backup SQLite và seed khách từ CSV.
+- GitHub Actions CI gồm unit/lint/build, Playwright E2E, visual smoke summary và CD VPS ARM64 có gate.
 
 ## Yêu cầu
 
 - Node.js 22.5 trở lên.
 - npm.
-- Production ưu tiên `better-sqlite3`. Trong môi trường hỗ trợ, code có thể fallback sang `node:sqlite` tích hợp của Node khi native package không khả dụng.
+- Production dùng `better-sqlite3`; có fallback sang SQLite tích hợp của Node khi môi trường hỗ trợ.
 
 ## Chạy local nhanh
 
@@ -39,13 +39,11 @@ Mở:
 
 - `http://localhost:3000/` — thiệp chung.
 - `http://localhost:3000/moi/demo` — link demo development.
-- `http://localhost:3000/admin` — dashboard admin.
-
-Link `demo` chỉ được tự seed trong development nếu chưa tồn tại.
+- `http://localhost:3000/admin` — admin.
 
 ## Biến môi trường
 
-Tạo `.env.local` khi chạy local hoặc `.env` trên VPS từ [`.env.example`](.env.example):
+Dùng `.env.local` ở local hoặc `.env` trên VPS:
 
 ```env
 SQLITE_PATH=data/wedding.sqlite
@@ -57,48 +55,26 @@ PUBLIC_SITE_URL=https://your-domain.com
 PORT=3000
 ```
 
-Tạo password hash và session secret:
+Tạo credential admin:
 
 ```bash
 npm run admin:password -- 'mat-khau-dai-va-rieng'
 openssl rand -base64 48
 ```
 
-Lệnh tạo password sẽ in nguyên dòng `ADMIN_PASSWORD_HASH=...` đã được escape đúng cho file `.env` của Next.js. Copy nguyên dòng đó; không tự bỏ hoặc thêm dấu `\`. Không commit password hash hoặc session secret thật lên repo.
+Không commit credential thật.
 
 ## Các khu vực admin
 
-### Link khách mời và RSVP
+`/admin` quản lý link mời, RSVP, media và thao tác vận hành. `/admin/edit` là nơi duy nhất chỉnh nội dung thiệp. `/admin/appearance` quản lý theme, font và nhạc nền toàn cục. Theme/font chỉ persist sau khi bấm **Lưu giao diện**; admin cũng đổi theo appearance đang chọn.
 
-`/admin` quản lý link mời và phản hồi. Danh sách link có thể tìm theo tên/mã và lọc theo **Đang bật / Đã tắt / Đã RSVP / Chưa RSVP**.
+## Media và nhạc
 
-Dùng **Tắt link** khi muốn ngừng sử dụng link nhưng vẫn giữ lịch sử RSVP. **Xoá** là xoá vĩnh viễn; nếu khách đã RSVP thì phản hồi đó cũng bị xoá sau bước xác nhận cảnh báo.
+Upload được phục vụ runtime qua `/uploads/<filename>`. `MEDIA_UPLOAD_DIRECTORY` phải nằm trên storage bền vững. SQLite lưu reference và metadata crop/focus; bytes ảnh/nhạc nằm trong upload directory.
 
-### Chỉnh nội dung thiệp
-
-`/admin/edit` cho sửa nội dung theo từng section: thông tin cặp đôi, cover, countdown, các mốc chuyện tình, thông tin lễ cưới, gallery, lời mời riêng/RSVP và footer. Dữ liệu được lưu SQLite và áp dụng cho cả thiệp chung lẫn thiệp riêng.
-
-### Theme giao diện
-
-`/admin/appearance` có 5 theme preset:
-
-- Ivory Gold — giao diện hiện tại/mặc định.
-- Blush Rose.
-- Sage Garden.
-- Burgundy Cream.
-- Midnight Gold.
-
-Chọn theme mới chỉ là trạng thái chờ. Theme chỉ được lưu khi bấm **Lưu giao diện**. Có thể preview trước trên mobile/desktop mà không ghi gì xuống SQLite. Theme được áp dụng cho `/` và toàn bộ `/moi/<code>`, còn giao diện admin giữ nguyên độc lập.
-
-### Ảnh
-
-Admin hỗ trợ ảnh hero/cover, chân dung cô dâu/chú rể, ảnh chuyện tình, địa điểm/bản đồ và gallery. Gallery có thể sắp xếp lại. File gốc nằm trong `MEDIA_UPLOAD_DIRECTORY`; SQLite chỉ lưu metadata như `focusX`, `focusY`, `zoom`.
-
-Căn khung là không phá huỷ: file ảnh gốc không bị ghi đè. Route `/uploads/<filename>` được Next.js phục vụ theo thời gian chạy nên upload ảnh mới không cần rebuild ứng dụng. Nếu thư mục upload nằm ngoài release directory, hãy đặt `MEDIA_UPLOAD_DIRECTORY` vào vùng lưu trữ bền vững và tiếp tục proxy `/uploads/` về Next.js qua Nginx.
+Khi backup phải giữ cả SQLite lẫn uploads.
 
 ## Database, seed và backup
-
-CSV khách mời dùng header `name,maxGuests`; xem [`data/guests.example.csv`](data/guests.example.csv).
 
 ```bash
 npm run db:init
@@ -106,44 +82,33 @@ npm run db:seed -- data/guests.csv
 npm run db:backup
 ```
 
-- `db:init` tạo/migrate các bảng cần thiết mà không xoá dữ liệu cũ.
-- `db:seed` tạo mã link ngẫu nhiên và in URL riêng cho từng khách.
-- `db:backup` checkpoint WAL rồi tạo file backup SQLite có timestamp trong `SQLITE_BACKUP_DIRECTORY`.
+`db:backup` checkpoint WAL trước khi tạo bản backup SQLite có timestamp.
 
-Khi backup phải giữ cả SQLite lẫn thư mục upload. SQLite chỉ chứa metadata ảnh, không chứa bytes của file ảnh.
-
-## Test và build
+## Test và CI
 
 ```bash
 npm test
 npm run lint
 npm run build
-```
-
-Browser/E2E test:
-
-```bash
-npx playwright install chromium
 npm run test:e2e
 ```
 
-Repo có GitHub Actions CI. Mỗi push lên `main` và mỗi pull request sẽ tự chạy unit test, lint, build và Playwright Chromium E2E.
+GitHub Actions chạy unit test, lint, build và Playwright Chromium E2E cho push `main` và pull request. Run `main` thành công publish visual smoke trực tiếp vào Actions Summary.
 
-## Deploy VPS
+## CI/CD lên VPS
 
-Mô hình production là Node.js + PM2 + Nginx trên VPS; không bắt buộc Vercel. Xem [DEPLOYMENT.md](DEPLOYMENT.md) để cấu hình HTTPS, reverse proxy, backup/restore SQLite, PM2 reload và rollback.
+Production chạy Node.js + PM2 + Nginx trên Oracle VPS ARM64. CD được khóa bằng variable `CD_ENABLED` để không tự deploy trước khi cấu hình SSH production xong.
 
-Một lần update thường dùng:
+Khi bật, một push `main` xanh sẽ:
 
-```bash
-npm run db:backup
-git pull --ff-only
-npm ci
-npm test
-npm run lint
-npm run build
-npm run db:init
-pm2 reload ecosystem.config.cjs --update-env
-```
+1. build lại Next.js standalone trên runner GitHub ARM64;
+2. smoke-test chính artifact ARM64 đó;
+3. upload artifact lên VPS bằng SSH strict host key;
+4. switch symlink release `current`;
+5. reload PM2;
+6. health check localhost;
+7. tự rollback nếu health check fail.
 
-SQLite và thư mục upload phải nằm trên storage bền vững để không mất dữ liệu qua các lần deploy/rollback.
+SQLite, `.env`, backups, ảnh và nhạc nằm trong `shared/` bền vững và không bị thay khi deploy code. VPS không cần chạy lại `npm ci` hay `npm run build` cho deployment CD bình thường.
+
+Xem [DEPLOYMENT.md](DEPLOYMENT.md) để bootstrap shared storage một lần, cấu hình GitHub Environment `production`, chạy manual deploy đầu tiên, bật auto-deploy và rollback.
