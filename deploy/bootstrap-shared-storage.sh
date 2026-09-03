@@ -46,7 +46,7 @@ fi
 
 restart_app() {
   if [ "$WAS_RUNNING" -eq 1 ]; then
-    pm2 start "$APP_NAME" >/dev/null 2>&1 || pm2 restart "$APP_NAME" >/dev/null 2>&1 || true
+    pm2 restart "$APP_NAME" >/dev/null 2>&1 || true
   fi
 }
 trap restart_app EXIT
