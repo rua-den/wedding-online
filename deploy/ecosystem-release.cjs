@@ -1,3 +1,6 @@
+const port = process.env.PORT || "3000";
+const hostname = process.env.HOSTNAME || "0.0.0.0";
+
 module.exports = {
   apps: [
     {
@@ -8,7 +11,8 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
-        PORT: 3000,
+        PORT: port,
+        HOSTNAME: hostname,
       },
     },
   ],
