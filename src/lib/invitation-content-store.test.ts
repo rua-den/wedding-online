@@ -32,7 +32,7 @@ describe("invitation content store", () => {
     const content = getInvitationContent();
     expect(content.couple.shortGroomName).toBe("Huy");
     expect(content.story.milestones.length).toBeGreaterThan(0);
-    expect(content.story.milestones[0]).toMatchObject({ imageSrc: null, imageFocusX: 50, imageFocusY: 50, imageZoom: 1 });
+    expect(content.story.milestones[0]).toMatchObject({ imageSrc: null, imageFocusX: 50, imageFocusY: 50, imageZoom: 1, imagePosition: "center" });
   });
 
   it("migrates a legacy v1 row in memory without rewriting it", () => {
@@ -43,6 +43,7 @@ describe("invitation content store", () => {
     delete story.milestones[0]?.imageFocusX;
     delete story.milestones[0]?.imageFocusY;
     delete story.milestones[0]?.imageZoom;
+    delete story.milestones[0]?.imagePosition;
     const event = legacy.event as Record<string, unknown>;
     delete event.timeHeading;
     delete event.venueHeading;
@@ -55,13 +56,13 @@ describe("invitation content store", () => {
 
     const migrated = getInvitationContent();
     expect(migrated.couple.shortGroomName).toBe("Anh");
-    expect(migrated.story.milestones[0]).toMatchObject({ imageSrc: null, imageFocusX: 50, imageFocusY: 50, imageZoom: 1 });
+    expect(migrated.story.milestones[0]).toMatchObject({ imageSrc: null, imageFocusX: 50, imageFocusY: 50, imageZoom: 1, imagePosition: "center" });
     expect(migrated.event.timeHeading).toBe("Thời gian");
     expect(migrated.rsvp.attendingLabel).toBe("Sẽ tham dự");
     expect(contentRow()?.schema_version).toBe(1);
   });
 
-  it("persists editable content and crop at the current schema version", () => {
+  it("persists editable content, crop and image position at the current schema version", () => {
     const content = defaultInvitationContent();
     content.couple.shortGroomName = "Anh";
     content.cover.message = "Lời mời mới";
@@ -78,12 +79,13 @@ describe("invitation content store", () => {
       imageFocusX: 25,
       imageFocusY: 72,
       imageZoom: 1.6,
+      imagePosition: "left",
     }];
 
     const saved = updateInvitationContent(content);
     expect(saved.event.timeHeading).toBe("Giờ làm lễ");
     expect(saved.rsvp.attendingLabel).toBe("Mình sẽ đến");
-    expect(saved.story.milestones[0]).toMatchObject({ imageFocusX: 25, imageFocusY: 72, imageZoom: 1.6 });
+    expect(saved.story.milestones[0]).toMatchObject({ imageFocusX: 25, imageFocusY: 72, imageZoom: 1.6, imagePosition: "left" });
     expect(contentRow()?.schema_version).toBe(CURRENT_INVITATION_CONTENT_SCHEMA_VERSION);
   });
 
@@ -92,6 +94,7 @@ describe("invitation content store", () => {
     const legacy = defaultInvitationContent() as unknown as Record<string, unknown>;
     const story = legacy.story as { milestones: Array<Record<string, unknown>> };
     delete story.milestones[0]?.imageSrc;
+    delete story.milestones[0]?.imagePosition;
     getDatabase().prepare(`INSERT INTO invitation_content (id, content_json, schema_version, updated_at) VALUES (1, ?, 1, ?)`).run(JSON.stringify(legacy), new Date().toISOString());
 
     const migrated = getInvitationContent();
@@ -107,10 +110,25 @@ describe("invitation content store", () => {
     delete story.milestones[0]?.imageFocusX;
     delete story.milestones[0]?.imageFocusY;
     delete story.milestones[0]?.imageZoom;
+    delete story.milestones[0]?.imagePosition;
     getDatabase().prepare(`INSERT INTO invitation_content (id, content_json, schema_version, updated_at) VALUES (1, ?, 3, ?)`).run(JSON.stringify(legacy), new Date().toISOString());
 
-    expect(getInvitationContent().story.milestones[0]).toMatchObject({ imageFocusX: 50, imageFocusY: 50, imageZoom: 1 });
+    expect(getInvitationContent().story.milestones[0]).toMatchObject({ imageFocusX: 50, imageFocusY: 50, imageZoom: 1, imagePosition: "center" });
     expect(contentRow()?.schema_version).toBe(3);
+  });
+
+  it("migrates v4 story positions with the first image centered and later images alternating", () => {
+    getInvitationContent();
+    const legacy = defaultInvitationContent() as unknown as Record<string, unknown>;
+    const story = legacy.story as { milestones: Array<Record<string, unknown>> };
+    for (const milestone of story.milestones) delete milestone.imagePosition;
+    getDatabase().prepare(`INSERT INTO invitation_content (id, content_json, schema_version, updated_at) VALUES (1, ?, 4, ?)`).run(JSON.stringify(legacy), new Date().toISOString());
+
+    const positions = getInvitationContent().story.milestones.map((milestone) => milestone.imagePosition);
+    expect(positions[0]).toBe("center");
+    if (positions.length > 1) expect(positions[1]).toBe("left");
+    if (positions.length > 2) expect(positions[2]).toBe("right");
+    expect(contentRow()?.schema_version).toBe(4);
   });
 
   it("does not downgrade or overwrite a future schema version", () => {
@@ -134,6 +152,13 @@ describe("invitation content store", () => {
     const content = defaultInvitationContent();
     content.story.milestones[0]!.imageZoom = 4;
     expect(() => updateInvitationContent(content)).toThrow();
+  });
+
+  it("rejects unsupported story image positions", () => {
+    const content = defaultInvitationContent() as unknown as Record<string, unknown>;
+    const story = content.story as { milestones: Array<Record<string, unknown>> };
+    story.milestones[0]!.imagePosition = "top";
+    expect(invitationContentSchema.safeParse(content).success).toBe(false);
   });
 
   it("keeps the schema compatible with missing optional imageSrc", () => {
