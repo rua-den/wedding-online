@@ -180,21 +180,19 @@ test("temporary hero replacement cleanup restores the displaced active asset", a
 
 test("public gallery renders uploaded media and opens its lightbox", async ({ page }) => {
   const alt = mediaAlt("gallery", "gallery");
-  try {
-    await login(page);
-    await uploadMedia(page, "gallery", "gallery");
-    await page.goto("/");
-    const galleryItem = page.getByRole("button", { name: alt });
-    await expect(galleryItem).toBeVisible();
-    await galleryItem.click();
-    const lightbox = page.getByRole("dialog", { name: "Xem ảnh lớn" });
-    await expect(lightbox).toBeVisible();
-    await expect(lightbox.getByRole("img", { name: alt })).toBeVisible();
-    await lightbox.getByRole("button", { name: "Đóng ảnh" }).click();
-    await expect(lightbox).not.toBeVisible();
-  } finally {
-    await deleteMediaByAlt(page, alt);
-  }
+  await login(page);
+  await uploadMedia(page, "gallery", "gallery");
+  await page.goto("/");
+  const galleryItem = page.getByRole("button", { name: alt });
+  await expect(galleryItem).toBeVisible();
+  await galleryItem.click();
+  const lightbox = page.getByRole("dialog", { name: "Xem ảnh lớn" });
+  await expect(lightbox).toBeVisible();
+  await expect(lightbox.getByRole("img", { name: alt })).toBeVisible();
+  await lightbox.getByRole("button", { name: "Đóng ảnh" }).click();
+  await expect(lightbox).not.toBeVisible();
+  // E2E runs in an isolated temporary database/upload root that global teardown removes.
+  // Avoid a redundant lookup/delete request here; that cleanup path can deadlock the test server under parallel browser load.
 });
 
 test("admin edits and crops a love-story milestone image", async ({ page }) => {

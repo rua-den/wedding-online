@@ -1,3 +1,5 @@
+export type StoryImagePosition = "left" | "center" | "right";
+
 export type LoveStoryMilestoneContent = {
   date: string;
   title: string;
@@ -6,6 +8,7 @@ export type LoveStoryMilestoneContent = {
   imageFocusX: number;
   imageFocusY: number;
   imageZoom: number;
+  imagePosition: StoryImagePosition;
 };
 
 export type InvitationContent = {

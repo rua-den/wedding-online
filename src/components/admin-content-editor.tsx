@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import type { InvitationContent, LoveStoryMilestoneContent } from "@/types/invitation-content";
+import type { InvitationContent, LoveStoryMilestoneContent, StoryImagePosition } from "@/types/invitation-content";
 import { MediaCropEditor, type MediaCropValues } from "./media-crop-editor";
 import styles from "./admin-content-editor.module.css";
 
@@ -58,11 +58,16 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
   }
 
   function addMilestone() {
-    setForm((current) => ({ ...current, story: { ...current.story, milestones: [...current.story.milestones, { date: "Mốc mới", title: "Tiêu đề mới", description: "Nội dung câu chuyện...", imageSrc: null, ...defaultCrop }] } }));
+    setForm((current) => {
+      const index = current.story.milestones.length;
+      const imagePosition: StoryImagePosition = index === 0 ? "center" : index % 2 === 0 ? "right" : "left";
+      return { ...current, story: { ...current.story, milestones: [...current.story.milestones, { date: "Mốc mới", title: "Tiêu đề mới", description: "Nội dung câu chuyện...", imageSrc: null, ...defaultCrop, imagePosition }] } };
+    });
   }
   function removeMilestone(index: number) { setForm((current) => ({ ...current, story: { ...current.story, milestones: current.story.milestones.filter((_, i) => i !== index) } })); }
 
   const field = (label: string, value: string, onChange: (value: string) => void, options?: { multiline?: boolean; type?: string; maxLength?: number }) => <label className={styles.field}><span>{label}</span>{options?.multiline ? <textarea value={value} onChange={(event) => onChange(event.target.value)} maxLength={options.maxLength ?? 600} required /> : <input type={options?.type ?? "text"} value={value} onChange={(event) => onChange(event.target.value)} maxLength={options?.maxLength ?? 220} required />}</label>;
+  const imagePositionField = (index: number, value: StoryImagePosition) => <label className={styles.storyPosition}><span>Vị trí ảnh</span><select value={value} onChange={(event) => updateMilestone(index, { imagePosition: event.target.value as StoryImagePosition })}><option value="left">Trái</option><option value="center">Giữa</option><option value="right">Phải</option></select>{index === 0 ? <small>Mốc đầu mặc định ở giữa; khi để Giữa, ảnh đầu sẽ mở story trước timeline.</small> : null}</label>;
 
   const cropMilestone = cropState ? form.story.milestones[cropState.index] : undefined;
 
@@ -97,6 +102,7 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
               {item.imageSrc ? <button className={styles.secondary} type="button" disabled={busy || uploadingMilestone !== null} onClick={() => updateMilestone(index, { imageSrc: null, ...defaultCrop })}>Gỡ ảnh</button> : null}
               <small>JPG, PNG, WebP, AVIF hoặc GIF · tối đa 12 MB.</small>
             </div></div>
+          {imagePositionField(index, item.imagePosition)}
           {field("Thời gian", item.date, (value) => updateMilestone(index, { date: value }))}{field("Tiêu đề", item.title, (value) => updateMilestone(index, { title: value }))}{field("Nội dung", item.description, (value) => updateMilestone(index, { description: value }), { multiline: true })}
         </article>)}</div>
         <button className={styles.secondary} type="button" onClick={addMilestone} disabled={form.story.milestones.length >= 12 || uploadingMilestone !== null}>+ Thêm mốc</button>
