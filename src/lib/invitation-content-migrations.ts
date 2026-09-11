@@ -1,4 +1,4 @@
-export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 4;
+export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 5;
 
 export class FutureInvitationContentVersionError extends Error {
   constructor(public readonly storedVersion: number) {
@@ -66,7 +66,28 @@ function migrateV3ToV4(input: unknown): unknown {
   };
 }
 
-const migrations: Record<number, (input: unknown) => unknown> = { 1: migrateV1ToV2, 2: migrateV2ToV3, 3: migrateV3ToV4 };
+function migrateV4ToV5(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  const story = input.story;
+  if (!isRecord(story) || !Array.isArray(story.milestones)) return input;
+  return {
+    ...input,
+    story: {
+      ...story,
+      milestones: story.milestones.map((milestone, index) => isRecord(milestone) ? {
+        ...milestone,
+        imagePosition: milestone.imagePosition ?? (index === 0 ? "center" : index % 2 === 0 ? "right" : "left"),
+      } : milestone),
+    },
+  };
+}
+
+const migrations: Record<number, (input: unknown) => unknown> = {
+  1: migrateV1ToV2,
+  2: migrateV2ToV3,
+  3: migrateV3ToV4,
+  4: migrateV4ToV5,
+};
 
 export function migrateInvitationContent(input: unknown, storedVersion: number): { content: unknown; version: number } {
   if (!Number.isInteger(storedVersion) || storedVersion < 1) throw new Error("Invitation content schema version is invalid.");
