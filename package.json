@@ -14,6 +14,7 @@
     "db:seed": "node --import tsx scripts/db-seed.ts",
     "db:backup": "node --import tsx scripts/db-backup.ts",
     "admin:password": "node --import tsx scripts/admin-password.ts",
+    "admin:setup": "node --import tsx scripts/admin-setup.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
