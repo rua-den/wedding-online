@@ -131,7 +131,9 @@
   justify-content: center;
   max-height: 88dvh;
   max-width: 94vw;
+  position: relative;
   width: min(94vw,92rem);
+  z-index: 1;
 }
 
 .invitation-theme-scope .gallery-lightbox-frame {
@@ -151,6 +153,11 @@
 .invitation-theme-scope .gallery-arrow {
   min-height: 3.25rem;
   min-width: 3.25rem;
+  z-index: 4;
+}
+
+.invitation-theme-scope .gallery-count {
+  z-index: 4;
 }
 
 @media (min-width: 760px) {
