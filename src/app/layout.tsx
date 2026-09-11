@@ -48,5 +48,5 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     crimsonPro.variable,
   ].join(" ");
 
-  return <html lang="vi"><body className={fontVariables}>{children}</body></html>;
+  return <html lang="vi"><body className={fontVariables} suppressHydrationWarning>{children}</body></html>;
 }
