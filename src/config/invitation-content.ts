@@ -17,7 +17,14 @@ export function defaultInvitationContent(): InvitationContent {
     story: {
       eyebrow: "Hành trình yêu thương",
       title: "Chuyện của chúng mình",
-      milestones: wedding.story.map((item) => ({ ...item, imageSrc: null, imageFocusX: 50, imageFocusY: 50, imageZoom: 1 })),
+      milestones: wedding.story.map((item, index) => ({
+        ...item,
+        imageSrc: null,
+        imageFocusX: 50,
+        imageFocusY: 50,
+        imageZoom: 1,
+        imagePosition: index === 0 ? "center" : index % 2 === 0 ? "right" : "left",
+      })),
     },
     event: {
       eyebrow: "Lễ thành hôn",
