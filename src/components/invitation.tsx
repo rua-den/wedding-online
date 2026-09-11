@@ -66,7 +66,7 @@ export function Invitation({
 
     <section className="story-section section-shell" id="chuyen-tinh" aria-labelledby="story-title">
       <div className="section-heading"><p className="eyebrow">{copy.story.eyebrow}</p><h2 id="story-title">{copy.story.title}</h2></div>
-      {storyImage ? <MediaFrame asset={storyImage} className="story-lead-image media-frame-slot-story" alt={storyImage.alt || `Khoảnh khắc của ${couple.shortGroomName} và ${couple.shortBrideName}`} loading="lazy" /> : firstMilestoneIsLead && firstMilestone?.imageSrc ? <MediaFrame asset={milestoneAsset(firstMilestone, 0)} className="story-lead-image timeline-image" alt={`Ảnh mốc ${firstMilestone.title}`} loading="lazy" /> : null}
+      {storyImage ? <MediaFrame asset={storyImage} className="story-lead-image media-frame-slot-story" alt={storyImage.alt || `Khoảnh khắc của ${couple.shortGroomName} và ${couple.shortBrideName}`} loading="lazy" /> : firstMilestoneIsLead && firstMilestone?.imageSrc ? <MediaFrame asset={milestoneAsset(firstMilestone, 0)} className="story-lead-image" alt={`Ảnh mốc ${firstMilestone.title}`} loading="lazy" /> : null}
       <ol className="timeline">
         {copy.story.milestones.map((milestone, index) => {
           const renderImageInTimeline = Boolean(milestone.imageSrc) && !(firstMilestoneIsLead && index === 0);
