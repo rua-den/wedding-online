@@ -1,0 +1,183 @@
+.invitation-theme-scope .vinyl-stage {
+  display: grid;
+  margin: clamp(1.5rem,4vh,2.75rem) auto clamp(1.4rem,4vh,2.4rem);
+  place-items: center;
+  width: 100%;
+}
+
+.invitation-theme-scope .vinyl-record {
+  align-items: center;
+  animation: wedding-vinyl-spin 13s linear infinite;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle at center, transparent 0 4%, rgba(255,255,255,.12) 4.2% 4.6%, transparent 4.8% 12%),
+    repeating-radial-gradient(circle at center, #171717 0 3px, #0b0b0b 4px 7px, #202020 8px 9px),
+    radial-gradient(circle at 32% 27%, rgba(255,255,255,.14), transparent 24%);
+  border: .35rem solid #090909;
+  border-radius: 50%;
+  box-shadow: 0 1.4rem 3.5rem rgba(0,0,0,.2), inset 0 0 0 1px rgba(255,255,255,.08);
+  display: flex;
+  height: clamp(12rem,36vw,20rem);
+  justify-content: center;
+  position: relative;
+  width: clamp(12rem,36vw,20rem);
+}
+
+.invitation-theme-scope .vinyl-record::after {
+  background: linear-gradient(105deg, transparent 26%, rgba(255,255,255,.08) 42%, transparent 58%);
+  border-radius: 50%;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.invitation-theme-scope .vinyl-grooves {
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 50%;
+  inset: 8%;
+  position: absolute;
+}
+
+.invitation-theme-scope .vinyl-grooves::before,
+.invitation-theme-scope .vinyl-grooves::after {
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 50%;
+  content: "";
+  position: absolute;
+}
+
+.invitation-theme-scope .vinyl-grooves::before { inset: 13%; }
+.invitation-theme-scope .vinyl-grooves::after { inset: 29%; }
+
+.invitation-theme-scope .vinyl-label {
+  align-items: center;
+  background: radial-gradient(circle at 38% 30%, var(--invitation-paper), var(--invitation-accent));
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+  color: var(--invitation-ink);
+  display: flex;
+  flex-direction: column;
+  font-size: clamp(.8rem,2.2vw,1.1rem);
+  height: 39%;
+  justify-content: center;
+  letter-spacing: .04em;
+  line-height: 1;
+  position: relative;
+  text-align: center;
+  width: 39%;
+  z-index: 1;
+}
+
+.invitation-theme-scope .vinyl-label span {
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invitation-theme-scope .vinyl-label em {
+  color: var(--invitation-accent-strong);
+  font-size: .72em;
+  margin: .25em 0;
+}
+
+.invitation-theme-scope .vinyl-hole {
+  background: #0b0b0b;
+  border: 2px solid rgba(255,255,255,.55);
+  border-radius: 50%;
+  height: .52rem;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  width: .52rem;
+  z-index: 2;
+}
+
+.invitation-theme-scope .gallery-grid {
+  display: grid;
+  gap: clamp(.8rem,2vw,1.25rem);
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  margin: clamp(2rem,5vh,3.5rem) auto 0;
+  max-width: 58rem;
+  width: 100%;
+}
+
+.invitation-theme-scope .gallery-item {
+  aspect-ratio: 4 / 5;
+  border-radius: 1.35rem !important;
+  min-height: 12rem;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+}
+
+.invitation-theme-scope .gallery-item .media-frame-slot-gallery,
+.invitation-theme-scope .gallery-item .media-frame-image {
+  height: 100%;
+  width: 100%;
+}
+
+.invitation-theme-scope .gallery-lightbox {
+  padding: clamp(.75rem,2vw,1.5rem);
+}
+
+.invitation-theme-scope .gallery-lightbox-frame-shell {
+  align-items: center;
+  display: flex;
+  height: min(88dvh,60rem);
+  justify-content: center;
+  max-height: 88dvh;
+  max-width: 94vw;
+  width: min(94vw,92rem);
+}
+
+.invitation-theme-scope .gallery-lightbox-frame {
+  height: 100%;
+  max-height: 88dvh;
+  max-width: 100%;
+  width: 100%;
+}
+
+.invitation-theme-scope .gallery-lightbox-image {
+  height: 100%;
+  object-fit: contain !important;
+  width: 100%;
+}
+
+.invitation-theme-scope .gallery-close,
+.invitation-theme-scope .gallery-arrow {
+  min-height: 3.25rem;
+  min-width: 3.25rem;
+}
+
+@media (min-width: 760px) {
+  .invitation-theme-scope .gallery-grid {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+    max-width: 76rem;
+  }
+
+  .invitation-theme-scope .gallery-item {
+    min-height: 16rem;
+  }
+}
+
+@media (min-width: 1180px) {
+  .invitation-theme-scope .gallery-grid {
+    max-width: 86rem;
+  }
+
+  .invitation-theme-scope .gallery-item {
+    min-height: 20rem;
+  }
+}
+
+@keyframes wedding-vinyl-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invitation-theme-scope .vinyl-record { animation: none; }
+}
