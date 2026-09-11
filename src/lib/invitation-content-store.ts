@@ -22,6 +22,7 @@ const milestoneSchema = z.object({
   imageFocusX: z.number().finite().min(0).max(100).default(50),
   imageFocusY: z.number().finite().min(0).max(100).default(50),
   imageZoom: z.number().finite().min(1).max(3).default(1),
+  imagePosition: z.enum(["left", "center", "right"]).default("right"),
 });
 
 export const invitationContentSchema: z.ZodType<InvitationContent> = z.object({
