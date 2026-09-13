@@ -1,14 +1,11 @@
 import { createAdminSession, serializeAdminCookie, verifyPassword } from "@/lib/admin-auth";
 import { adminLoginSchema } from "@/lib/admin-validation";
+import { getTrustedProxyClientIp } from "@/lib/client-ip";
 
 const failedAttempts = new Map<string, number[]>();
 const MAX_FAILURES = 5;
 const WINDOW_MS = 10 * 60 * 1000;
 
-function clientIp(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
-}
 function recentFailures(ip: string, now = Date.now()) {
   const recent = (failedAttempts.get(ip) ?? []).filter((timestamp) => timestamp > now - WINDOW_MS);
   if (recent.length) failedAttempts.set(ip, recent); else failedAttempts.delete(ip);
@@ -21,7 +18,7 @@ export function resetLoginRateLimitForTests() { failedAttempts.clear(); }
 
 export async function POST(request: Request) {
   const headers = { "Cache-Control": "no-store" };
-  const ip = clientIp(request);
+  const ip = getTrustedProxyClientIp(request);
   if (loginRateLimitEnabled() && recentFailures(ip).length >= MAX_FAILURES) {
     return Response.json({ message: "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau." }, { status: 429, headers });
   }
