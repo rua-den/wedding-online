@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 APP_ROOT="${1:-$(pwd)}"
 APP_NAME="${PM2_APP_NAME:-huy-nhi-wedding}"
@@ -61,6 +62,7 @@ elif [ -f "$ROOT_ENV" ] && [ ! -L "$ROOT_ENV" ]; then
   }
   rm "$ROOT_ENV"
 fi
+chmod 600 "$SHARED/.env"
 rm -f "$ROOT_ENV"
 ln -s "$SHARED/.env" "$ROOT_ENV"
 
@@ -97,11 +99,17 @@ fi
 rm -rf "$ROOT_UPLOADS"
 ln -s "$SHARED/uploads" "$ROOT_UPLOADS"
 
+chmod 700 "$SHARED" "$SHARED/data" "$SHARED/data/backups" "$SHARED/uploads"
+find "$SHARED/data" -type d -exec chmod 700 {} +
+find "$SHARED/data" -type f -exec chmod 600 {} +
+find "$SHARED/uploads" -type d -exec chmod 700 {} +
+find "$SHARED/uploads" -type f -exec chmod 600 {} +
+
 trap - EXIT
 restart_app
 
 echo "Shared storage ready:"
-echo "  env:     $SHARED/.env"
-echo "  data:    $SHARED/data"
-echo "  uploads: $SHARED/uploads"
+echo "  env:     $SHARED/.env (0600)"
+echo "  data:    $SHARED/data (private to deploy user)"
+echo "  uploads: $SHARED/uploads (private to deploy user)"
 echo "Legacy paths now point to shared storage, so the current manual PM2 deployment can keep running until CD is enabled."
