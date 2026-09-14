@@ -1,7 +1,7 @@
 import { noStoreJson, rejectUnlessAdmin } from "@/lib/admin-route";
 import { createMediaAsset, deleteMediaAsset, listAdminMedia, MediaNotFoundError, updateMediaAsset } from "@/lib/media-store";
 import { createUploadFilename, removeMediaFile, saveMediaFile } from "@/lib/media-upload";
-import { resolveUploadExtension, validateMediaAlt, validateMediaUpload } from "@/lib/media-validation";
+import { validateImageFile, validateMediaAlt, validateMediaUpload } from "@/lib/media-validation";
 
 export async function GET(request: Request) {
   const rejected = rejectUnlessAdmin(request);
@@ -19,7 +19,9 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   if (!(file instanceof File)) return noStoreJson({ message: "Vui lòng chọn một tệp hình ảnh." }, { status: 400 });
+
   let checked: ReturnType<typeof validateMediaUpload>;
+  let extension: string;
   try {
     checked = validateMediaUpload({
       slot: String(form?.get("slot") ?? ""),
@@ -28,13 +30,14 @@ export async function POST(request: Request) {
       size: file.size,
       alt: String(form?.get("alt") ?? ""),
     });
+    extension = await validateImageFile(file);
   } catch (error) {
     return noStoreJson({ message: error instanceof Error ? error.message : "Tệp hình ảnh không hợp lệ." }, { status: 400 });
   }
 
   let saved: Awaited<ReturnType<typeof saveMediaFile>> | undefined;
   try {
-    saved = await saveMediaFile(file, createUploadFilename(file.name, resolveUploadExtension(file.name, file.type)));
+    saved = await saveMediaFile(file, createUploadFilename(file.name, extension));
     const asset = createMediaAsset({ slot: checked.slot, src: saved.src, alt: checked.alt });
     return noStoreJson({ asset }, { status: 201 });
   } catch {
