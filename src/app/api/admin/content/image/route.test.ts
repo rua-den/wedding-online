@@ -8,9 +8,11 @@ import { POST } from "./route";
 
 let directory: string;
 
-function uploadRequest(authenticated = true) {
+function uploadRequest(authenticated = true, file = new File([
+  new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
+], "story.png", { type: "image/png" })) {
   const form = new FormData();
-  form.set("file", new File([Buffer.from("image-bytes")], "story.png", { type: "image/png" }));
+  form.set("file", file);
   const headers = new Headers();
   if (authenticated) headers.set("cookie", `wedding_admin_session=${createAdminSession()}`);
   return new Request("http://localhost/api/admin/content/image", { method: "POST", body: form, headers });
@@ -38,5 +40,11 @@ describe("/api/admin/content/image", () => {
     const body = await response.json() as { src: string };
     expect(body.src).toMatch(/^\/uploads\/.+\.png$/);
     expect(existsSync(join(directory, "uploads", basename(body.src)))).toBe(true);
+  });
+
+  it("rejects an image with forged MIME metadata", async () => {
+    const response = await POST(uploadRequest(true, new File(["not-png"], "story.png", { type: "image/png" })));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ message: "Tệp không có định dạng hình ảnh hợp lệ." });
   });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { getTrustedProxyClientIp } from "@/lib/client-ip";
 import { getInvitationContent } from "@/lib/invitation-content-store";
 import { submitRsvp } from "@/lib/invitation-service";
 import { createRateLimiter } from "@/lib/rate-limit";
@@ -13,12 +14,8 @@ const rsvpSchema = z.object({
 
 const limiter = createRateLimiter({ maxRequests: 10, windowMs: 600_000 });
 
-function getClientIp(request: Request) {
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
-}
-
 export async function PUT(request: Request, { params }: { params: Promise<{ code: string }> }) {
-  if (!limiter.allow(getClientIp(request))) {
+  if (!limiter.allow(getTrustedProxyClientIp(request))) {
     return Response.json({ message: "Bạn đã gửi quá nhiều lần. Vui lòng thử lại sau ít phút." }, { status: 429 });
   }
 

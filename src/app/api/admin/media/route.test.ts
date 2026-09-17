@@ -16,7 +16,10 @@ function headers(authenticated = true) {
   if (authenticated) result.set("cookie", `wedding_admin_session=${createAdminSession()}`);
   return result;
 }
-function imageRequest(file = new File(["image"], "photo.jpg", { type: "image/jpeg" }), authenticated = true) {
+function validJpeg() {
+  return new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00])], "photo.jpg", { type: "image/jpeg" });
+}
+function imageRequest(file = validJpeg(), authenticated = true) {
   const form = new FormData();
   form.set("file", file);
   form.set("slot", "gallery");
@@ -56,6 +59,11 @@ describe("/api/admin/media", () => {
   it("rejects a non-image upload", async () => {
     const response = await POST(imageRequest(new File(["pdf"], "file.pdf", { type: "application/pdf" })));
     expect(response.status).toBe(400);
+  });
+  it("rejects forged image MIME metadata", async () => {
+    const response = await POST(imageRequest(new File(["not-a-jpeg"], "photo.jpg", { type: "image/jpeg" })));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ message: "Tệp không có định dạng hình ảnh hợp lệ." });
   });
   it("updates and deletes an uploaded asset", async () => {
     const created = await (await POST(imageRequest())).json() as { asset: { id: number } };

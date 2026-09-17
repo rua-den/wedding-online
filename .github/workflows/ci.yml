@@ -311,6 +311,7 @@ jobs:
           ssh -i "$HOME/.ssh/id_deploy" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "$VPS_USER@$VPS_HOST" bash -s -- "$VPS_APP_ROOT" "$GITHUB_SHA" "$VPS_APP_PORT" <<'REMOTE'
           set -euo pipefail
+          umask 077
           APP_ROOT="$1"
           RELEASE_ID="$2"
           APP_PORT="$3"
@@ -328,6 +329,11 @@ jobs:
           command -v node >/dev/null || { echo "Node.js is not installed on VPS"; exit 1; }
           command -v pm2 >/dev/null || { echo "PM2 is not installed on VPS"; exit 1; }
           command -v curl >/dev/null || { echo "curl is not installed on VPS"; exit 1; }
+
+          chmod 600 "$SHARED/.env"
+          chmod 700 "$SHARED" "$SHARED/data" "$SHARED/uploads"
+          mkdir -p "$SHARED/data/backups"
+          chmod 700 "$SHARED/data/backups"
 
           mkdir -p "$APP_ROOT/releases"
           rm -rf "$RELEASE"
@@ -353,7 +359,7 @@ jobs:
           mv -Tf "$NEXT_LINK" "$APP_ROOT/current"
 
           cd "$APP_ROOT/current"
-          PORT="$APP_PORT" HOSTNAME="0.0.0.0" pm2 startOrReload ecosystem.config.cjs --update-env
+          PORT="$APP_PORT" HOSTNAME="127.0.0.1" pm2 startOrReload ecosystem.config.cjs --update-env
 
           HEALTHY=0
           for attempt in $(seq 1 20); do
@@ -373,7 +379,7 @@ jobs:
               ln -s "$PREVIOUS" "$ROLLBACK_LINK"
               mv -Tf "$ROLLBACK_LINK" "$APP_ROOT/current"
               cd "$APP_ROOT/current"
-              PORT="$APP_PORT" HOSTNAME="0.0.0.0" pm2 startOrReload ecosystem.config.cjs --update-env || true
+              PORT="$APP_PORT" HOSTNAME="127.0.0.1" pm2 startOrReload ecosystem.config.cjs --update-env || true
             elif [ -n "$LEGACY_CONFIG" ]; then
               cd "$APP_ROOT"
               pm2 startOrReload "$LEGACY_CONFIG" --update-env || true
