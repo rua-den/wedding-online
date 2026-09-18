@@ -327,6 +327,32 @@ jobs:
           RELEASE="$APP_ROOT/releases/$RELEASE_ID"
           ARCHIVE="$APP_ROOT/incoming/$RELEASE_ID.tgz"
 
+          health_check() {
+            for attempt in $(seq 1 20); do
+              if curl --fail --silent --show-error "http://127.0.0.1:$APP_PORT/" > /dev/null; then
+                return 0
+              fi
+              sleep 1
+            done
+            return 1
+          }
+
+          start_release() {
+            target="$1"
+            pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+            cd "$target" || return 1
+            PORT="$APP_PORT" HOSTNAME="127.0.0.1" pm2 start ecosystem.config.cjs --update-env
+          }
+
+          switch_current() {
+            target="$1"
+            link="$APP_ROOT/.current-$RELEASE_ID-$$"
+            rm -f "$link"
+            ln -s "$target" "$link"
+            rm -f "$APP_ROOT/current"
+            mv -T "$link" "$APP_ROOT/current"
+          }
+
           test -f "$SHARED/.env" || {
             echo "Missing $SHARED/.env. Run the one-time VPS shared-storage bootstrap before enabling CD."
             exit 1
@@ -337,24 +363,19 @@ jobs:
           command -v pm2 >/dev/null || { echo "PM2 is not installed on VPS"; exit 1; }
           command -v curl >/dev/null || { echo "curl is not installed on VPS"; exit 1; }
 
+          if [ -e "$APP_ROOT/current" ] && [ ! -L "$APP_ROOT/current" ]; then
+            echo "$APP_ROOT/current must be a symlink"
+            exit 1
+          fi
+
           chmod 600 "$SHARED/.env"
           chmod 700 "$SHARED" "$SHARED/data" "$SHARED/uploads"
-          mkdir -p "$SHARED/data/backups"
+          mkdir -p "$SHARED/data/backups" "$APP_ROOT/releases"
           chmod 700 "$SHARED/data/backups"
 
-          mkdir -p "$APP_ROOT/releases"
-          rm -rf "$RELEASE"
-          mkdir -p "$RELEASE"
-          tar -xzf "$ARCHIVE" -C "$RELEASE"
-          rm -f "$ARCHIVE"
-
-          rm -rf "$RELEASE/data" "$RELEASE/public/uploads" "$RELEASE/.env"
-          mkdir -p "$RELEASE/public"
-          ln -s "$SHARED/data" "$RELEASE/data"
-          ln -s "$SHARED/uploads" "$RELEASE/public/uploads"
-          ln -s "$SHARED/.env" "$RELEASE/.env"
-
           PREVIOUS=""
+          PREVIOUS_REVISION=""
+
           if [ -f "$APP_ROOT/DEPLOYED_REVISION" ]; then
             PREVIOUS_REVISION="$(tr -d '\r\n' < "$APP_ROOT/DEPLOYED_REVISION")"
             PREVIOUS_CANDIDATE="$APP_ROOT/releases/$PREVIOUS_REVISION"
@@ -363,61 +384,115 @@ jobs:
             fi
           fi
 
+          if [ -z "$PREVIOUS" ] && [ -L "$APP_ROOT/current" ]; then
+            CURRENT_TARGET="$(readlink -f "$APP_ROOT/current" || true)"
+            case "$CURRENT_TARGET" in
+              "$APP_ROOT"/releases/*)
+                if [ -d "$CURRENT_TARGET" ] && [ "$CURRENT_TARGET" != "$RELEASE" ]; then
+                  PREVIOUS="$CURRENT_TARGET"
+                  PREVIOUS_REVISION="$(basename "$CURRENT_TARGET")"
+                fi
+                ;;
+            esac
+          fi
+
+          if [ -z "$PREVIOUS" ]; then
+            RUNNING_PID="$(pm2 pid "$APP_NAME" 2>/dev/null | head -n 1 || true)"
+            if [ -n "$RUNNING_PID" ] && [ "$RUNNING_PID" != "0" ] && [ -e "/proc/$RUNNING_PID/cwd" ]; then
+              RUNNING_CWD="$(readlink -f "/proc/$RUNNING_PID/cwd" || true)"
+              case "$RUNNING_CWD" in
+                "$APP_ROOT"/releases/*)
+                  if [ -d "$RUNNING_CWD" ] && [ "$RUNNING_CWD" != "$RELEASE" ]; then
+                    PREVIOUS="$RUNNING_CWD"
+                    PREVIOUS_REVISION="$(basename "$RUNNING_CWD")"
+                    echo "Recovered rollback target from running PM2 process: $PREVIOUS_REVISION"
+                  fi
+                  ;;
+              esac
+            fi
+          fi
+
           LEGACY_CONFIG=""
           if [ -z "$PREVIOUS" ] && [ -f "$APP_ROOT/ecosystem.config.cjs" ]; then
             LEGACY_CONFIG="$APP_ROOT/ecosystem.config.cjs"
           fi
 
-          if [ -e "$APP_ROOT/current" ] && [ ! -L "$APP_ROOT/current" ]; then
-            echo "$APP_ROOT/current must be a symlink"
-            exit 1
+          ACTIVE_REVISION=""
+          if [ -f "$APP_ROOT/DEPLOYED_REVISION" ]; then
+            ACTIVE_REVISION="$(tr -d '\r\n' < "$APP_ROOT/DEPLOYED_REVISION")"
+          fi
+          if [ "$ACTIVE_REVISION" = "$RELEASE_ID" ] && [ -d "$RELEASE" ] && health_check; then
+            echo "Release $RELEASE_ID is already healthy; deployment is idempotent."
+            rm -f "$ARCHIVE"
+            switch_current "$RELEASE"
+            pm2 save
+            exit 0
           fi
 
-          NEXT_LINK="$APP_ROOT/.current-$RELEASE_ID"
-          rm -f "$NEXT_LINK"
-          ln -s "$RELEASE" "$NEXT_LINK"
-          rm -f "$APP_ROOT/current"
-          mv -T "$NEXT_LINK" "$APP_ROOT/current"
+          STAGING="$APP_ROOT/releases/.staging-$RELEASE_ID-$$"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          tar -xzf "$ARCHIVE" -C "$STAGING"
+          rm -f "$ARCHIVE"
 
-          cd "$RELEASE"
-          PORT="$APP_PORT" HOSTNAME="127.0.0.1" pm2 startOrReload ecosystem.config.cjs --update-env
+          rm -rf "$STAGING/data" "$STAGING/public/uploads" "$STAGING/.env"
+          mkdir -p "$STAGING/public"
+          ln -s "$SHARED/data" "$STAGING/data"
+          ln -s "$SHARED/uploads" "$STAGING/public/uploads"
+          ln -s "$SHARED/.env" "$STAGING/.env"
 
-          HEALTHY=0
-          for attempt in $(seq 1 20); do
-            if curl --fail --silent --show-error "http://127.0.0.1:$APP_PORT/" > /dev/null; then
-              HEALTHY=1
-              break
+          rm -rf "$RELEASE"
+          mv "$STAGING" "$RELEASE"
+
+          DEPLOY_OK=0
+          if start_release "$RELEASE"; then
+            if health_check; then
+              DEPLOY_OK=1
             fi
-            sleep 1
-          done
+          fi
 
-          if [ "$HEALTHY" -ne 1 ]; then
-            echo "New release failed health check; rolling back."
+          if [ "$DEPLOY_OK" -ne 1 ]; then
+            echo "New release failed activation or health check; rolling back."
             pm2 logs "$APP_NAME" --lines 80 --nostream || true
+            pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+
+            ROLLBACK_OK=0
             if [ -n "$PREVIOUS" ]; then
-              ROLLBACK_LINK="$APP_ROOT/.rollback-$RELEASE_ID"
-              rm -f "$ROLLBACK_LINK"
-              ln -s "$PREVIOUS" "$ROLLBACK_LINK"
-              rm -f "$APP_ROOT/current"
-              mv -T "$ROLLBACK_LINK" "$APP_ROOT/current"
-              cd "$PREVIOUS"
-              PORT="$APP_PORT" HOSTNAME="127.0.0.1" pm2 startOrReload ecosystem.config.cjs --update-env || true
+              echo "Rolling back to release $PREVIOUS_REVISION"
+              switch_current "$PREVIOUS"
+              if start_release "$PREVIOUS" && health_check; then
+                printf '%s\n' "$PREVIOUS_REVISION" > "$APP_ROOT/DEPLOYED_REVISION"
+                pm2 save
+                ROLLBACK_OK=1
+              fi
             elif [ -n "$LEGACY_CONFIG" ]; then
+              echo "Rolling back to legacy PM2 configuration"
               rm -f "$APP_ROOT/current"
               cd "$APP_ROOT"
-              pm2 startOrReload "$LEGACY_CONFIG" --update-env || true
-            else
-              rm -f "$APP_ROOT/current"
-              pm2 delete "$APP_NAME" || true
+              if pm2 start "$LEGACY_CONFIG" --update-env && health_check; then
+                rm -f "$APP_ROOT/DEPLOYED_REVISION"
+                pm2 save
+                ROLLBACK_OK=1
+              fi
             fi
-            exit 1
+
+            if [ "$ROLLBACK_OK" -eq 1 ]; then
+              echo "Rollback health check passed; production is back on the last-known-good release."
+              exit 1
+            fi
+
+            echo "CRITICAL: deployment failed and no healthy rollback target could be restored."
+            pm2 status || true
+            exit 2
           fi
 
-          pm2 save
+          switch_current "$RELEASE"
           printf '%s\n' "$RELEASE_ID" > "$APP_ROOT/DEPLOYED_REVISION"
+          pm2 save
 
           ls -1dt "$APP_ROOT"/releases/* 2>/dev/null | tail -n +6 | while IFS= read -r old_release; do
             [ "$old_release" = "$PREVIOUS" ] && continue
+            [ "$old_release" = "$RELEASE" ] && continue
             rm -rf "$old_release"
           done
           REMOTE
@@ -427,7 +502,9 @@ jobs:
           {
             echo "## Production deployment"
             echo
-            echo "✅ Deployed commit \`${GITHUB_SHA:0:7}\` to the VPS after CI, ARM64 standalone smoke test, PM2 activation, and localhost health check."
+            echo "✅ Deployed commit \`${GITHUB_SHA:0:7}\` to the VPS after CI, ARM64 standalone smoke test, clean PM2 activation, and localhost health check."
+            echo
+            echo "If activation fails, CD now restarts the last-known-good release from its own working directory and requires its rollback health check to pass before reporting the failed deployment."
             echo
             echo "The VPS keeps SQLite, backups, uploads/music, and .env under the persistent shared directory; releases are immutable and the latest five are retained."
           } >> "$GITHUB_STEP_SUMMARY"
