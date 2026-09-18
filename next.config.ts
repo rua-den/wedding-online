@@ -11,6 +11,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["better-sqlite3"],
+  env: {
+    NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version ?? "0.1.0",
+    NEXT_PUBLIC_BUILD_SHA: process.env.GITHUB_SHA ?? "local",
+  },
   async headers() {
     return [
       {
