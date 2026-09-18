@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/verify-standalone.mjs",
     "start": "next start",
     "db:init": "node --import tsx scripts/db-init.ts",
     "db:seed": "node --import tsx scripts/db-seed.ts",
