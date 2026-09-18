@@ -86,7 +86,7 @@ function openDatabase(databasePath: string): SqliteDatabase {
 
 export function getDatabase(): SqliteDatabase {
   if (!database) {
-    const databasePath = resolve(process.env.SQLITE_PATH ?? "data/wedding.sqlite");
+    const databasePath = resolve(/* turbopackIgnore: true */ process.env.SQLITE_PATH ?? "data/wedding.sqlite");
     mkdirSync(dirname(databasePath), { recursive: true });
     database = openDatabase(databasePath);
     database.pragma("foreign_keys = ON");
