@@ -208,6 +208,10 @@ jobs:
           cp -a .next/static/. release/.next/static/
           if [ -d public ]; then cp -a public/. release/public/; fi
           rm -rf release/public/uploads
+          test -f release/node_modules/better-sqlite3/package.json || {
+            echo "Production release is missing better-sqlite3"
+            exit 1
+          }
           cp deploy/ecosystem-release.cjs release/ecosystem.config.cjs
           printf '%s\n' "$GITHUB_SHA" > release/REVISION
           tar -C release -czf production-release.tgz .
@@ -215,8 +219,11 @@ jobs:
       - name: Smoke test ARM64 standalone release
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/wedding-data" "$RUNNER_TEMP/wedding-uploads"
-          cd release
+          ISOLATED_RELEASE="$RUNNER_TEMP/wedding-release"
+          rm -rf "$ISOLATED_RELEASE"
+          mkdir -p "$ISOLATED_RELEASE" "$RUNNER_TEMP/wedding-data" "$RUNNER_TEMP/wedding-uploads"
+          cp -a release/. "$ISOLATED_RELEASE/"
+          cd "$ISOLATED_RELEASE"
           HOSTNAME=127.0.0.1 \
           PORT=3100 \
           SQLITE_PATH="$RUNNER_TEMP/wedding-data/wedding.sqlite" \
@@ -347,18 +354,32 @@ jobs:
           ln -s "$SHARED/uploads" "$RELEASE/public/uploads"
           ln -s "$SHARED/.env" "$RELEASE/.env"
 
-          PREVIOUS="$(readlink -f "$APP_ROOT/current" 2>/dev/null || true)"
+          PREVIOUS=""
+          if [ -f "$APP_ROOT/DEPLOYED_REVISION" ]; then
+            PREVIOUS_REVISION="$(tr -d '\r\n' < "$APP_ROOT/DEPLOYED_REVISION")"
+            PREVIOUS_CANDIDATE="$APP_ROOT/releases/$PREVIOUS_REVISION"
+            if [ -n "$PREVIOUS_REVISION" ] && [ -d "$PREVIOUS_CANDIDATE" ] && [ "$PREVIOUS_CANDIDATE" != "$RELEASE" ]; then
+              PREVIOUS="$PREVIOUS_CANDIDATE"
+            fi
+          fi
+
           LEGACY_CONFIG=""
           if [ -z "$PREVIOUS" ] && [ -f "$APP_ROOT/ecosystem.config.cjs" ]; then
             LEGACY_CONFIG="$APP_ROOT/ecosystem.config.cjs"
           fi
 
+          if [ -e "$APP_ROOT/current" ] && [ ! -L "$APP_ROOT/current" ]; then
+            echo "$APP_ROOT/current must be a symlink"
+            exit 1
+          fi
+
           NEXT_LINK="$APP_ROOT/.current-$RELEASE_ID"
           rm -f "$NEXT_LINK"
           ln -s "$RELEASE" "$NEXT_LINK"
-          mv -Tf "$NEXT_LINK" "$APP_ROOT/current"
+          rm -f "$APP_ROOT/current"
+          mv -T "$NEXT_LINK" "$APP_ROOT/current"
 
-          cd "$APP_ROOT/current"
+          cd "$RELEASE"
           PORT="$APP_PORT" HOSTNAME="127.0.0.1" pm2 startOrReload ecosystem.config.cjs --update-env
 
           HEALTHY=0
@@ -373,18 +394,21 @@ jobs:
           if [ "$HEALTHY" -ne 1 ]; then
             echo "New release failed health check; rolling back."
             pm2 logs "$APP_NAME" --lines 80 --nostream || true
-            if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ]; then
+            if [ -n "$PREVIOUS" ]; then
               ROLLBACK_LINK="$APP_ROOT/.rollback-$RELEASE_ID"
               rm -f "$ROLLBACK_LINK"
               ln -s "$PREVIOUS" "$ROLLBACK_LINK"
-              mv -Tf "$ROLLBACK_LINK" "$APP_ROOT/current"
-              cd "$APP_ROOT/current"
+              rm -f "$APP_ROOT/current"
+              mv -T "$ROLLBACK_LINK" "$APP_ROOT/current"
+              cd "$PREVIOUS"
               PORT="$APP_PORT" HOSTNAME="127.0.0.1" pm2 startOrReload ecosystem.config.cjs --update-env || true
             elif [ -n "$LEGACY_CONFIG" ]; then
+              rm -f "$APP_ROOT/current"
               cd "$APP_ROOT"
               pm2 startOrReload "$LEGACY_CONFIG" --update-env || true
             else
-              pm2 stop "$APP_NAME" || true
+              rm -f "$APP_ROOT/current"
+              pm2 delete "$APP_NAME" || true
             fi
             exit 1
           fi
