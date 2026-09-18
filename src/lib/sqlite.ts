@@ -1,15 +1,10 @@
+import BetterSqlite3 from "better-sqlite3";
 import { mkdirSync } from "node:fs";
-import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 
-type SqliteParameter = string | number | bigint | Uint8Array | null;
 type SqliteStatement = { get(...parameters: unknown[]): unknown; all(...parameters: unknown[]): unknown[]; run(...parameters: unknown[]): unknown };
 type SqliteDatabase = { prepare(sql: string): SqliteStatement; exec(sql: string): void; pragma(expression: string, options?: { simple?: boolean }): unknown; backup(path: string): Promise<unknown>; close(): void };
-type NativeStatement = { get(...parameters: unknown[]): unknown; all(...parameters: unknown[]): unknown[]; run(...parameters: unknown[]): unknown };
-type NativeDatabase = { prepare(sql: string): NativeStatement; exec(sql: string): void; close(): void };
-type NativeSqliteModule = { DatabaseSync: new (path: string) => NativeDatabase; backup(database: NativeDatabase, path: string): Promise<unknown> | unknown };
 
-const nodeRequire = createRequire(import.meta.url);
 let database: SqliteDatabase | undefined;
 
 const schema = `
@@ -85,41 +80,13 @@ function migrateAppearanceFontColumn(connection: SqliteDatabase): void {
   if (!existingColumns.has("font_id")) connection.exec("ALTER TABLE appearance_settings ADD COLUMN font_id TEXT NOT NULL DEFAULT 'classic-serif'");
 }
 
-function wrapNativeDatabase(native: NativeDatabase, backupDatabase: NativeSqliteModule["backup"]): SqliteDatabase {
-  return {
-    prepare: (sql) => {
-      const statement = native.prepare(sql);
-      const plainRow = (row: unknown) => !row || typeof row !== "object" || Array.isArray(row) ? row : Object.fromEntries(Object.entries(row));
-      return { get: (...parameters) => plainRow(statement.get(...parameters)), all: (...parameters) => statement.all(...parameters).map(plainRow), run: (...parameters) => statement.run(...parameters) };
-    },
-    exec: (sql) => native.exec(sql),
-    close: () => native.close(),
-    backup: (path) => Promise.resolve(backupDatabase(native, path)),
-    pragma(expression, options) {
-      const normalized = expression.trim();
-      if (/^[a-z_]+\s*=/.test(normalized)) { native.exec(`PRAGMA ${normalized}`); return undefined; }
-      const row = native.prepare(`PRAGMA ${normalized}`).get() as Record<string, SqliteParameter> | undefined;
-      if (!options?.simple) return row;
-      return row ? Object.values(row)[0] : undefined;
-    },
-  };
-}
-
 function openDatabase(databasePath: string): SqliteDatabase {
-  try {
-    const BetterSqlite3 = nodeRequire(/* turbopackIgnore: true */ "better-sqlite3") as new (path: string) => SqliteDatabase;
-    return new BetterSqlite3(databasePath);
-  } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND")) throw error;
-    const nativeSqlite = nodeRequire("node:sqlite") as NativeSqliteModule;
-    const nativeDatabase = new nativeSqlite.DatabaseSync(databasePath);
-    return wrapNativeDatabase(nativeDatabase, nativeSqlite.backup);
-  }
+  return new BetterSqlite3(databasePath) as unknown as SqliteDatabase;
 }
 
 export function getDatabase(): SqliteDatabase {
   if (!database) {
-    const databasePath = resolve(/* turbopackIgnore: true */ process.env.SQLITE_PATH ?? "data/wedding.sqlite");
+    const databasePath = resolve(process.env.SQLITE_PATH ?? "data/wedding.sqlite");
     mkdirSync(dirname(databasePath), { recursive: true });
     database = openDatabase(databasePath);
     database.pragma("foreign_keys = ON");
