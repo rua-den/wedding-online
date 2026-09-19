@@ -18,20 +18,23 @@ function rsvpRequest({ realIp, forwardedFor }: { realIp?: string; forwardedFor?:
 }
 
 describe("PUT /api/rsvp/[code] rate-limit identity", () => {
-  it("keeps different trusted-proxy forwarded clients on separate quotas", async () => {
+  it("keeps different reverse-proxy normalized clients on separate quotas", async () => {
     for (let index = 0; index < 11; index += 1) {
-      const response = await PUT(rsvpRequest({ forwardedFor: `198.51.100.${index + 1}` }), { params: Promise.resolve({ code: "invite-code" }) });
+      const response = await PUT(rsvpRequest({
+        realIp: `198.51.100.${index + 1}`,
+        forwardedFor: "203.0.113.250",
+      }), { params: Promise.resolve({ code: "invite-code" }) });
       expect(response.status).not.toBe(429);
     }
   });
 
-  it("rate limits repeated submissions from the same forwarded client", async () => {
+  it("rate limits repeated submissions from the same trusted client identity", async () => {
     for (let index = 0; index < 10; index += 1) {
-      const response = await PUT(rsvpRequest({ forwardedFor: "203.0.113.200" }), { params: Promise.resolve({ code: "invite-code" }) });
+      const response = await PUT(rsvpRequest({ realIp: "203.0.113.200" }), { params: Promise.resolve({ code: "invite-code" }) });
       expect(response.status).not.toBe(429);
     }
 
-    const blocked = await PUT(rsvpRequest({ forwardedFor: "203.0.113.200" }), { params: Promise.resolve({ code: "invite-code" }) });
+    const blocked = await PUT(rsvpRequest({ realIp: "203.0.113.200" }), { params: Promise.resolve({ code: "invite-code" }) });
     expect(blocked.status).toBe(429);
   });
 
@@ -48,6 +51,16 @@ describe("PUT /api/rsvp/[code] rate-limit identity", () => {
       realIp: "192.0.2.44",
       forwardedFor: "203.0.113.250, 192.0.2.44",
     }), { params: Promise.resolve({ code: "invite-code" }) });
+    expect(blocked.status).toBe(429);
+  });
+
+  it("fails closed when only attacker-controlled forwarded-for values are present", async () => {
+    for (let index = 0; index < 10; index += 1) {
+      const response = await PUT(rsvpRequest({ forwardedFor: `198.51.100.${index + 1}` }), { params: Promise.resolve({ code: "invite-code" }) });
+      expect(response.status).not.toBe(429);
+    }
+
+    const blocked = await PUT(rsvpRequest({ forwardedFor: "203.0.113.250" }), { params: Promise.resolve({ code: "invite-code" }) });
     expect(blocked.status).toBe(429);
   });
 });
