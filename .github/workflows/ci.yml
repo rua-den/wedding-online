@@ -266,10 +266,6 @@ jobs:
     timeout-minutes: 10
     environment: production
     env:
-      VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_USER: ${{ secrets.VPS_USER }}
-      VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
       VPS_PORT: ${{ vars.VPS_PORT || '22' }}
       VPS_APP_ROOT: ${{ vars.VPS_APP_ROOT }}
       VPS_APP_PORT: ${{ vars.VPS_APP_PORT || '3000' }}
@@ -282,6 +278,11 @@ jobs:
           path: deploy-artifact
 
       - name: Validate deployment configuration
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           test -n "$VPS_HOST" || { echo "Missing production secret VPS_HOST"; exit 1; }
@@ -296,6 +297,9 @@ jobs:
           test "$VPS_APP_ROOT" != "/" || { echo "VPS_APP_ROOT cannot be /"; exit 1; }
 
       - name: Configure SSH
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           install -m 700 -d "$HOME/.ssh"
@@ -305,6 +309,9 @@ jobs:
           chmod 600 "$HOME/.ssh/known_hosts"
 
       - name: Upload release to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
           SSH=(ssh -i "$HOME/.ssh/id_deploy" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes)
@@ -313,6 +320,9 @@ jobs:
           "${SCP[@]}" deploy-artifact/production-release.tgz "$VPS_USER@$VPS_HOST:$VPS_APP_ROOT/incoming/$GITHUB_SHA.tgz"
 
       - name: Activate release and health check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/id_deploy" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
