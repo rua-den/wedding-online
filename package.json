@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/verify-standalone.mjs",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
     "db:init": "node --import tsx scripts/db-init.ts",
     "db:seed": "node --import tsx scripts/db-seed.ts",
     "db:backup": "node --import tsx scripts/db-backup.ts",

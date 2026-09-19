@@ -1,9 +1,10 @@
-export function getTrustedProxyClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")
-    ?.split(",")
-    .map((value) => value.trim())
-    .find(Boolean);
-  if (forwarded) return forwarded;
+import { isIP } from "node:net";
 
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
+function normalizeIp(value: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed && isIP(trimmed) ? trimmed : null;
+}
+
+export function getTrustedProxyClientIp(request: Request): string {
+  return normalizeIp(request.headers.get("x-real-ip")) ?? "unknown";
 }
