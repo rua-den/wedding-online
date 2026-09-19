@@ -19,4 +19,11 @@ describe("GitHub Actions supply-chain policy", () => {
     expect(workflow).not.toContain("write-all");
     expect(workflow).not.toContain("id-token: write");
   });
+
+  it("does not expose production secrets to every step in the deploy job", () => {
+    const deployJob = workflow.split("  deploy-production:")[1];
+    expect(deployJob).toBeTruthy();
+    const deployJobHeader = deployJob!.split("\n    steps:")[0];
+    expect(deployJobHeader).not.toContain("secrets.");
+  });
 });
