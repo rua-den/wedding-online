@@ -37,12 +37,18 @@ Cần:
 - `curl` và `tar`.
 - Nginx reverse proxy tới `127.0.0.1:3000` (hoặc `VPS_APP_PORT`).
 
+**Port ứng dụng (`3000`/`VPS_APP_PORT`) là private origin và không được public ra Internet.** Không mở port này trong OCI Security List/NSG hoặc UFW. Production Next.js phải luôn bind `127.0.0.1`; chỉ Nginx trên cùng VPS được truy cập origin.
+
+Nginx cũng là trusted proxy boundary cho rate limit. `deploy/nginx-wedding.conf` cố ý **overwrite** `X-Real-IP` và `X-Forwarded-For` bằng `$remote_addr`; không đổi sang `$proxy_add_x_forwarded_for` nếu chưa đồng thời thay đổi trust-hop model trong ứng dụng.
+
 Cấu hình domain/HTTPS như cũ:
 
-1. Mở TCP 80/443 trong OCI Security List/NSG và UFW.
+1. Mở TCP 80/443 trong OCI Security List/NSG và UFW. Không mở `3000`/`VPS_APP_PORT`.
 2. Dùng `deploy/nginx-wedding.conf` cho Nginx.
 3. Chạy `sudo nginx -t && sudo systemctl reload nginx`.
 4. Dùng Certbot cho HTTPS.
+
+`deploy/nginx-wedding.conf` cấu hình HSTS theo `$scheme`: header `Strict-Transport-Security: max-age=31536000` chỉ được gửi khi request thật sự đi qua HTTPS sau khi Certbot bật TLS; HTTP/localhost không nhận HSTS. Chưa bật `includeSubDomains` hoặc preload để tránh khóa nhầm các subdomain chưa sẵn sàng HTTPS.
 
 Nginx phải proxy `/uploads/` về Next.js; không alias thẳng vào thư mục release.
 
@@ -58,9 +64,22 @@ ADMIN_PASSWORD_HASH=scrypt\$generated-salt\$generated-digest
 ADMIN_SESSION_SECRET=replace-with-at-least-32-random-characters
 PUBLIC_SITE_URL=https://your-domain.com
 PORT=3000
+HOSTNAME=127.0.0.1
 ```
 
 Các đường dẫn relative vẫn dùng được trong release-based CD vì `data` và `public/uploads` là symlink về `shared/`.
+
+## Rate limit production
+
+Admin login và RSVP hiện dùng rate limit in-memory trong process Node.js. Với topology hiện tại (`instances: 1`, một PM2 process duy nhất, origin localhost-only) đây là trade-off chấp nhận được và không cần Redis/external service.
+
+Giới hạn cần nhớ:
+
+- quota reset khi process restart/deploy;
+- quota không được chia sẻ nếu sau này chạy nhiều Node/PM2 instances hoặc nhiều VPS;
+- client identity chỉ đáng tin vì reverse proxy local overwrite forwarding headers trước khi request vào Next.js.
+
+Nếu scale production lên nhiều process/host, phải chuyển rate-limit state sang shared store hoặc enforcement layer dùng chung trước khi scale. Không được giải quyết bằng cách tin thêm forwarding header từ Internet.
 
 ## Chuyển deployment hiện tại sang shared storage một lần
 
@@ -167,7 +186,7 @@ cd <VPS_APP_ROOT>
 ls -1dt releases/*
 ln -sfn "$(pwd)/releases/<commit-sha>" current
 cd current
-PORT=3000 HOSTNAME=0.0.0.0 pm2 startOrReload ecosystem.config.cjs --update-env
+PORT=3000 HOSTNAME=127.0.0.1 pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save
 curl -I http://127.0.0.1:3000/
 ```
