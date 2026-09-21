@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
+import { scaledTextStyle, textScale } from "@/lib/invitation-typography";
 import type { InvitationContent } from "@/types/invitation-content";
 
 type Fetcher = typeof fetch;
@@ -13,11 +14,13 @@ type RsvpFormProps = {
   maxGuests: number;
   isClosed?: boolean;
   copy?: InvitationContent["rsvp"];
+  fontScales?: Record<string, number>;
   fetcher?: Fetcher;
 };
 
-export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, fetcher = fetch }: RsvpFormProps) {
+export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, fontScales, fetcher = fetch }: RsvpFormProps) {
   const labels = copy ?? defaultInvitationContent().rsvp;
+  const styleFor = (key: string) => scaledTextStyle(textScale(fontScales, key));
   const [attendance, setAttendance] = useState<"attending" | "declined">("attending");
   const [guestCount, setGuestCount] = useState(1);
   const [message, setMessage] = useState("");
@@ -50,24 +53,27 @@ export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, f
     }
   }
 
+  const selectFontSize = `${textScale(fontScales, "rsvp.guestCountSuffix") / 100}rem`;
+  const messageFontSize = `${textScale(fontScales, "rsvp.messagePlaceholder") / 100}rem`;
+
   return (
     <form className="rsvp-form" onSubmit={onSubmit}>
-      <p className="rsvp-greeting">{labels.greetingPrefix} <strong>{guestName}</strong></p>
-      {isClosed ? <p className="form-status form-status-error">{labels.closedMessage}</p> : null}
+      <p className="rsvp-greeting"><span style={styleFor("rsvp.greetingPrefix")}>{labels.greetingPrefix}</span> <strong>{guestName}</strong></p>
+      {isClosed ? <p className="form-status form-status-error"><span style={styleFor("rsvp.closedMessage")}>{labels.closedMessage}</span></p> : null}
       <fieldset disabled={isClosed || isSubmitting}>
-        <legend>{labels.attendanceQuestion}</legend>
-        <label><input checked={attendance === "attending"} name="attendance" onChange={() => setAttendance("attending")} type="radio" /> {labels.attendingLabel}</label>
-        <label><input checked={attendance === "declined"} name="attendance" onChange={() => setAttendance("declined")} type="radio" /> {labels.declinedLabel}</label>
-        <label htmlFor="guest-count">{labels.guestCountLabel}</label>
-        <select aria-label={labels.guestCountLabel} disabled={attendance === "declined"} id="guest-count" onChange={(event) => setGuestCount(Number(event.target.value))} value={attendance === "declined" ? 0 : guestCount}>
+        <legend><span style={styleFor("rsvp.attendanceQuestion")}>{labels.attendanceQuestion}</span></legend>
+        <label><input checked={attendance === "attending"} name="attendance" onChange={() => setAttendance("attending")} type="radio" /> <span style={styleFor("rsvp.attendingLabel")}>{labels.attendingLabel}</span></label>
+        <label><input checked={attendance === "declined"} name="attendance" onChange={() => setAttendance("declined")} type="radio" /> <span style={styleFor("rsvp.declinedLabel")}>{labels.declinedLabel}</span></label>
+        <label htmlFor="guest-count"><span style={styleFor("rsvp.guestCountLabel")}>{labels.guestCountLabel}</span></label>
+        <select aria-label={labels.guestCountLabel} disabled={attendance === "declined"} id="guest-count" onChange={(event) => setGuestCount(Number(event.target.value))} style={{ fontSize: selectFontSize }} value={attendance === "declined" ? 0 : guestCount}>
           {Array.from({ length: maxGuests }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count} {labels.guestCountSuffix}</option>)}
           {attendance === "declined" ? <option value={0}>0 {labels.guestCountSuffix}</option> : null}
         </select>
-        <label htmlFor="rsvp-message">{labels.messageLabel}</label>
-        <textarea aria-label={labels.messageLabel} id="rsvp-message" maxLength={500} onChange={(event) => setMessage(event.target.value)} placeholder={labels.messagePlaceholder} value={message} />
-        <button type="submit">{isSubmitting ? labels.submittingLabel : labels.submitLabel}</button>
+        <label htmlFor="rsvp-message"><span style={styleFor("rsvp.messageLabel")}>{labels.messageLabel}</span></label>
+        <textarea aria-label={labels.messageLabel} id="rsvp-message" maxLength={500} onChange={(event) => setMessage(event.target.value)} placeholder={labels.messagePlaceholder} style={{ fontSize: messageFontSize }} value={message} />
+        <button type="submit"><span style={styleFor(isSubmitting ? "rsvp.submittingLabel" : "rsvp.submitLabel")}>{isSubmitting ? labels.submittingLabel : labels.submitLabel}</span></button>
       </fieldset>
-      {status.type !== "idle" ? <p className={`form-status form-status-${status.type}`} role="status">{status.message}</p> : null}
+      {status.type !== "idle" ? <p className={`form-status form-status-${status.type}`} role="status">{status.type === "success" ? <span style={styleFor("rsvp.successMessage")}>{status.message}</span> : status.message}</p> : null}
     </form>
   );
 }
