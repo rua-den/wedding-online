@@ -15,8 +15,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <AdminThemeScope themeId={appearance.themeId} fontId={appearance.fontId}>
       {children}
       <footer
-        className="fixed bottom-3 right-3 z-50 rounded-full border border-[#dcc59b]/70 bg-[#fffdf8]/95 px-3 py-1.5 font-sans text-[11px] font-semibold tracking-[0.08em] text-[#796d60] shadow-sm backdrop-blur"
+        className="fixed bottom-3 right-3 z-50 rounded-full border px-3 py-1.5 font-sans text-[11px] font-semibold tracking-[0.08em] shadow-sm backdrop-blur"
         data-build-sha={buildSha}
+        style={{
+          background: "var(--paper)",
+          borderColor: "var(--admin-border-medium)",
+          color: "var(--muted)",
+        }}
         title={`Build ${buildSha}`}
       >
         v{appVersion} · {shortBuildSha}
