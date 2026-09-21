@@ -3,6 +3,7 @@ import type { InvitationContent } from "@/types/invitation-content";
 
 export function defaultInvitationContent(): InvitationContent {
   return {
+    fontScales: {},
     couple: {
       groom: wedding.couple.groom,
       bride: wedding.couple.bride,
@@ -19,6 +20,9 @@ export function defaultInvitationContent(): InvitationContent {
       title: "Chuyện của chúng mình",
       milestones: wedding.story.map((item, index) => ({
         ...item,
+        dateFontScale: 100,
+        titleFontScale: 100,
+        descriptionFontScale: 100,
         imageSrc: null,
         imageFocusX: 50,
         imageFocusY: 50,
