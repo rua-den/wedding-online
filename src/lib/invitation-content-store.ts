@@ -6,6 +6,7 @@ import {
   FutureInvitationContentVersionError,
   migrateInvitationContent,
 } from "@/lib/invitation-content-migrations";
+import { MAX_TEXT_SCALE, MIN_TEXT_SCALE } from "@/lib/invitation-typography";
 import { canonicalUploadFilename } from "@/lib/media-upload";
 import { getDatabase, initializeDatabase } from "@/lib/sqlite";
 import { getSiteSettings, isGoogleMapsHttpsUrl, updateSiteSettings } from "@/lib/site-settings";
@@ -13,11 +14,15 @@ import type { InvitationContent } from "@/types/invitation-content";
 
 const text = (label: string, max: number) => z.string().trim().min(1, `Vui lòng nhập ${label}.`).max(max, `${label} quá dài.`);
 const isoDate = (label: string) => text(label, 80).refine((value) => !Number.isNaN(new Date(value).getTime()), `${label} không hợp lệ.`);
+const fontScale = z.number().finite().min(MIN_TEXT_SCALE).max(MAX_TEXT_SCALE);
 const milestoneImage = z.string().trim().refine((value) => canonicalUploadFilename(value) !== null, "Ảnh mốc chuyện tình không hợp lệ.").nullable().optional().default(null);
 const milestoneSchema = z.object({
   date: text("mốc thời gian", 120),
   title: text("tiêu đề câu chuyện", 160),
   description: text("nội dung câu chuyện", 600),
+  dateFontScale: fontScale.optional().default(100),
+  titleFontScale: fontScale.optional().default(100),
+  descriptionFontScale: fontScale.optional().default(100),
   imageSrc: milestoneImage,
   imageFocusX: z.number().finite().min(0).max(100).default(50),
   imageFocusY: z.number().finite().min(0).max(100).default(50),
@@ -26,6 +31,7 @@ const milestoneSchema = z.object({
 });
 
 export const invitationContentSchema: z.ZodType<InvitationContent> = z.object({
+  fontScales: z.record(z.string(), fontScale).optional().default({}),
   couple: z.object({
     groom: text("tên chú rể", 160), bride: text("tên cô dâu", 160), shortGroomName: text("tên ngắn chú rể", 60), shortBrideName: text("tên ngắn cô dâu", 60), groomBio: text("mô tả chú rể", 600), brideBio: text("mô tả cô dâu", 600),
   }),
