@@ -13,7 +13,7 @@ export function OpenInvitationButton({ label, targetId, fontScale }: { label: st
   }
 
   return <button type="button" className="open-invitation-button scroll-cue" onClick={openInvitation}>
-    <span style={scaledTextStyle(fontScale)}>{label}</span>
+    <span style={{ ...scaledTextStyle(fontScale), marginLeft: 0, transform: "none", transition: "none" }}>{label}</span>
     <span aria-hidden="true" className="open-invitation-arrow">↓</span>
   </button>;
 }
