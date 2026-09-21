@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 
+import { formatImageMegabytes, MAX_CLIENT_IMAGE_BYTES, prepareImageForUpload } from "@/lib/client-image-optimize";
 import type { MediaAsset, MediaSlot } from "@/lib/media-store";
 import { InvitationPreviewDialog } from "./invitation-preview-dialog";
 import { MediaCropEditor, type MediaCropValues } from "./media-crop-editor";
@@ -68,9 +69,22 @@ export function AdminMediaPanel({ initialAssets, request = fetch }: { initialAss
   async function upload(slot: MediaSlot, file: File) {
     setBusy(true);
     setStatus("");
+
+    let prepared: Awaited<ReturnType<typeof prepareImageForUpload>>;
+    try {
+      if (file.size > MAX_CLIENT_IMAGE_BYTES) {
+        setStatus(`Ảnh ${formatImageMegabytes(file.size)} MB đang được tối ưu để giữ chất lượng trước khi tải lên…`);
+      }
+      prepared = await prepareImageForUpload(file);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Không thể tối ưu ảnh này.");
+      setBusy(false);
+      return;
+    }
+
     try {
       const form = new FormData();
-      form.set("file", file);
+      form.set("file", prepared.file);
       form.set("slot", slot);
       form.set("alt", file.name.replace(/\.[^.]+$/, ""));
       const response = await request("/api/admin/media", { method: "POST", body: form });
@@ -87,7 +101,9 @@ export function AdminMediaPanel({ initialAssets, request = fetch }: { initialAss
           .map((asset) => asset.slot === slot && slot !== "gallery" && asset.active ? { ...asset, active: false } : asset),
       ]);
       markPersisted();
-      setStatus("Đã tải ảnh lên.");
+      setStatus(prepared.optimized
+        ? `Đã tự tối ưu ảnh từ ${formatImageMegabytes(prepared.originalBytes)} MB xuống ${formatImageMegabytes(prepared.file.size)} MB và tải lên.`
+        : "Đã tải ảnh lên.");
     } catch {
       setStatus("Không thể kết nối để tải ảnh.");
     } finally {
@@ -255,7 +271,7 @@ export function AdminMediaPanel({ initialAssets, request = fetch }: { initialAss
           })}
         </div>
 
-        <div className="admin-media-gallery-head"><h3>Gallery</h3><label className="admin-primary-button">+ Thêm ảnh<input hidden multiple type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={busy} onChange={(event) => { Array.from(event.target.files ?? []).forEach((file) => void upload("gallery", file)); event.currentTarget.value = ""; }} /></label></div>
+        <div className="admin-media-gallery-head"><h3>Gallery</h3><label className="admin-primary-button">+ Thêm ảnh<input hidden multiple type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={busy} onChange={(event) => { const files = Array.from(event.target.files ?? []); event.currentTarget.value = ""; void (async () => { for (const file of files) await upload("gallery", file); })(); }} /></label></div>
         <div className="admin-media-gallery">
           {gallery.map((asset, index) => <article className="admin-media-thumb" key={asset.id} draggable onDragStart={() => setDragIndex(index)} onDragOver={(event) => event.preventDefault()} onDrop={() => { if (dragIndex !== null) void reorder(dragIndex, index); setDragIndex(null); }}>
             <MediaFrame asset={asset} className="admin-media-frame media-frame-slot-gallery admin-media-frame-gallery" alt={asset.alt || `Ảnh ${index + 1}`} loading="lazy" />
