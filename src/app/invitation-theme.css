@@ -30,6 +30,27 @@
 .invitation-theme-scope .couple-section,
 .invitation-theme-scope .personal-cover { background: var(--invitation-alternate); }
 .invitation-theme-scope .event-section { background: var(--invitation-event-surface); }
+
+/* Public section text must follow the selected palette directly. Relying only on
+   inherited root color made the dark theme vulnerable to legacy/global rules. */
+.invitation-theme-scope .countdown-section,
+.invitation-theme-scope .couple-section,
+.invitation-theme-scope .story-section,
+.invitation-theme-scope .event-section,
+.invitation-theme-scope .gallery-section,
+.invitation-theme-scope .rsvp-section,
+.invitation-theme-scope .personal-cover {
+  color: var(--invitation-ink);
+}
+.invitation-theme-scope .section-copy,
+.invitation-theme-scope .person-card > p:not(.person-role),
+.invitation-theme-scope .timeline-copy > p:not(.timeline-date),
+.invitation-theme-scope .event-details dd,
+.invitation-theme-scope .rsvp-card > p:not(.eyebrow),
+.invitation-theme-scope .personal-cover-content > p:last-of-type {
+  color: var(--invitation-muted);
+}
+
 .invitation-theme-scope .event-card,
 .invitation-theme-scope .rsvp-card { border-color: var(--invitation-border-strong); }
 .invitation-theme-scope .event-details { border-color: var(--invitation-border-strong); }
