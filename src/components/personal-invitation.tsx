@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
 import type { PublicMediaAsset } from "@/lib/media-store";
+import { scaledTextStyle, textScale } from "@/lib/invitation-typography";
 import type { InvitationContent } from "@/types/invitation-content";
 import { Invitation } from "./invitation";
 import { InvitationFooter } from "./invitation-footer";
@@ -18,6 +19,7 @@ export function PersonalInvitation({ code, media = [], content }: { code: string
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [error, setError] = useState("");
   const copy = content ?? defaultInvitationContent();
+  const styleFor = (key: string) => scaledTextStyle(textScale(copy.fontScales, key));
 
   useEffect(() => {
     fetch(`/api/invitations/${code}`, { cache: "no-store" })
@@ -38,22 +40,22 @@ export function PersonalInvitation({ code, media = [], content }: { code: string
   return <>
     <section className="personal-cover personal-cover-full section-shell" aria-labelledby="personal-invitation-title">
       <div className="personal-cover-content">
-        <p className="eyebrow">{copy.personal.eyebrow}</p>
+        <p className="eyebrow"><span style={styleFor("personal.eyebrow")}>{copy.personal.eyebrow}</span></p>
         <h1 id="personal-invitation-title">{invitation.guestName}</h1>
-        <p>{copy.personal.message}</p>
-        <OpenInvitationButton label={copy.cover.scrollCue} targetId="thiep-cuoi" />
+        <p><span style={styleFor("personal.message")}>{copy.personal.message}</span></p>
+        <OpenInvitationButton label={copy.cover.scrollCue} targetId="thiep-cuoi" fontScale={textScale(copy.fontScales, "cover.scrollCue")} />
       </div>
     </section>
     <Invitation media={media} content={copy} nextAfterGalleryTargetId="xac-nhan-tham-du" showFooter={false} />
     <section id="xac-nhan-tham-du" className="rsvp-section section-shell" aria-labelledby="rsvp-title">
       <div className="rsvp-card">
-        <p className="eyebrow">{copy.rsvp.eyebrow}</p>
-        <h2 id="rsvp-title">{copy.rsvp.title}</h2>
-        <p>{copy.rsvp.intro} {new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(copy.event.rsvpDeadline))}.</p>
-        <RsvpForm code={code} guestName={invitation.guestName} isClosed={isClosed} maxGuests={invitation.maxGuests} copy={copy.rsvp} />
+        <p className="eyebrow"><span style={styleFor("rsvp.eyebrow")}>{copy.rsvp.eyebrow}</span></p>
+        <h2 id="rsvp-title"><span style={styleFor("rsvp.title")}>{copy.rsvp.title}</span></h2>
+        <p><span style={styleFor("rsvp.intro")}>{copy.rsvp.intro} {new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(copy.event.rsvpDeadline))}.</span></p>
+        <RsvpForm code={code} guestName={invitation.guestName} isClosed={isClosed} maxGuests={invitation.maxGuests} copy={copy.rsvp} fontScales={copy.fontScales} />
       </div>
       <SectionJumpButton targetId="loi-cam-on" label="lời cảm ơn" />
     </section>
-    <InvitationFooter title={copy.footer.title} message={copy.footer.message} />
+    <InvitationFooter title={copy.footer.title} message={copy.footer.message} titleScale={textScale(copy.fontScales, "footer.title")} messageScale={textScale(copy.fontScales, "footer.message")} />
   </>;
 }
