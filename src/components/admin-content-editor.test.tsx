@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
 import { AdminContentEditor } from "./admin-content-editor";
+
+afterEach(() => cleanup());
 
 describe("AdminContentEditor font size controls", () => {
   it("persists a per-field font scale with the edited copy", async () => {
