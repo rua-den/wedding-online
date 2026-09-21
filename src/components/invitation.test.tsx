@@ -41,4 +41,23 @@ describe("Invitation", () => {
       "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png",
     );
   });
+
+  it("applies per-copy and per-milestone font scales without replacing responsive parent typography", () => {
+    const content = defaultInvitationContent();
+    content.fontScales = {
+      "countdown.title": 150,
+      "couple.groom": 135,
+    };
+    content.story.milestones[0] = {
+      ...content.story.milestones[0],
+      title: "Mốc có cỡ chữ riêng",
+      titleFontScale: 175,
+    };
+
+    render(<Invitation content={content} />);
+
+    expect(screen.getByText(content.countdown.title)).toHaveStyle({ fontSize: "1.5em" });
+    expect(screen.getByText(content.couple.groom)).toHaveStyle({ fontSize: "1.35em" });
+    expect(screen.getByText("Mốc có cỡ chữ riêng")).toHaveStyle({ fontSize: "1.75em" });
+  });
 });
