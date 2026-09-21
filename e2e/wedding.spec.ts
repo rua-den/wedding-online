@@ -255,7 +255,7 @@ test("public invitation remains usable with reduced motion", async ({ page }) =>
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await expect(page.locator("#invitation-title")).toBeVisible();
-  const transitionDurationSeconds = await page.locator(".scroll-cue span").evaluate((element) => {
+  const transitionDurationSeconds = await page.locator(".scroll-cue .open-invitation-arrow").evaluate((element) => {
     const value = getComputedStyle(element).transitionDuration.trim();
     if (value.endsWith("ms")) return Number.parseFloat(value) / 1000;
     return Number.parseFloat(value);
