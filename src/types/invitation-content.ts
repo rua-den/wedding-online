@@ -4,6 +4,9 @@ export type LoveStoryMilestoneContent = {
   date: string;
   title: string;
   description: string;
+  dateFontScale?: number;
+  titleFontScale?: number;
+  descriptionFontScale?: number;
   imageSrc: string | null;
   imageFocusX: number;
   imageFocusY: number;
@@ -12,6 +15,7 @@ export type LoveStoryMilestoneContent = {
 };
 
 export type InvitationContent = {
+  fontScales?: Record<string, number>;
   couple: {
     groom: string;
     bride: string;
