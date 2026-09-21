@@ -58,8 +58,8 @@ describe("Invitation", () => {
 
     render(<Invitation content={content} />);
 
-    expect(screen.getByText(content.countdown.title)).toHaveStyle({ fontSize: "1.5em" });
-    expect(screen.getByText(content.couple.groom)).toHaveStyle({ fontSize: "1.35em" });
-    expect(screen.getByText("Mốc có cỡ chữ riêng")).toHaveStyle({ fontSize: "1.75em" });
+    expect(screen.getByText(content.countdown.title).style.fontSize).toBe("1.5em");
+    expect(screen.getByText(content.couple.groom).style.fontSize).toBe("1.35em");
+    expect(screen.getByText("Mốc có cỡ chữ riêng").style.fontSize).toBe("1.75em");
   });
 });
