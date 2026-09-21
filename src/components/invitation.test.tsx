@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
 import { Invitation } from "./invitation";
+
+afterEach(() => cleanup());
 
 describe("Invitation", () => {
   it("renders persisted event content instead of config defaults", () => {
@@ -22,7 +24,7 @@ describe("Invitation", () => {
 
     expect(screen.getByText("Sảnh Hoa")).toBeInTheDocument();
     expect(screen.getByText("12 Đường Mùa Xuân")).toBeInTheDocument();
-    expect(screen.getByText("18:00")).toBeInTheDocument();
+    expect(screen.getAllByText("18:00")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /Xem chỉ đường/ })).toHaveAttribute("href", content.event.mapsUrl);
   });
 
