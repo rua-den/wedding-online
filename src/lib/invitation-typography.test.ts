@@ -2,12 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
 import { invitationContentSchema } from "./invitation-content-store";
-import { normalizeTextScale, scaledTextStyle } from "./invitation-typography";
+import {
+  INVITATION_DISPLAY_FONT_FAMILY,
+  normalizeTextScale,
+  scaledTextStyle,
+} from "./invitation-typography";
 
 describe("invitation typography", () => {
-  it("keeps legacy or missing text scales at the original design size", () => {
+  it("keeps legacy or missing text scales at the original design size and selected display font", () => {
     expect(normalizeTextScale(undefined)).toBe(100);
-    expect(scaledTextStyle(undefined)).toEqual({ fontSize: "1em" });
+    expect(scaledTextStyle(undefined)).toEqual({
+      fontFamily: INVITATION_DISPLAY_FONT_FAMILY,
+      fontSize: "1em",
+    });
   });
 
   it("accepts supported persisted scales and rejects out-of-range values", () => {
