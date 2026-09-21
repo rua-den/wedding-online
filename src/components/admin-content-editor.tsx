@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { formatImageMegabytes, MAX_CLIENT_IMAGE_BYTES, prepareImageForUpload } from "@/lib/client-image-optimize";
 import type { InvitationContent, LoveStoryMilestoneContent, StoryImagePosition } from "@/types/invitation-content";
 import { MediaCropEditor, type MediaCropValues } from "./media-crop-editor";
 import styles from "./admin-content-editor.module.css";
@@ -40,13 +41,28 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
 
   async function uploadMilestoneImage(index: number, file: File) {
     setUploadingMilestone(index); setMessage("");
+
+    let prepared: Awaited<ReturnType<typeof prepareImageForUpload>>;
     try {
-      const data = new FormData(); data.set("file", file);
+      if (file.size > MAX_CLIENT_IMAGE_BYTES) {
+        setMessage(`Ảnh ${formatImageMegabytes(file.size)} MB đang được tối ưu để giữ chất lượng trước khi tải lên…`);
+      }
+      prepared = await prepareImageForUpload(file);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không thể tối ưu ảnh này.");
+      setUploadingMilestone(null);
+      return;
+    }
+
+    try {
+      const data = new FormData(); data.set("file", prepared.file);
       const response = await request("/api/admin/content/image", { method: "POST", body: data });
       const body = await response.json().catch(() => null) as { src?: string; message?: string } | null;
       if (!response.ok || !body?.src) { setMessage(body?.message ?? "Không thể tải ảnh mốc lên."); return; }
       updateMilestone(index, { imageSrc: body.src, ...defaultCrop });
-      setMessage(`Đã tải ảnh cho mốc ${index + 1}. Bấm “Lưu nội dung” để áp dụng.`);
+      setMessage(prepared.optimized
+        ? `Đã tự tối ưu ảnh từ ${formatImageMegabytes(prepared.originalBytes)} MB xuống ${formatImageMegabytes(prepared.file.size)} MB và tải cho mốc ${index + 1}. Bấm “Lưu nội dung” để áp dụng.`
+        : `Đã tải ảnh cho mốc ${index + 1}. Bấm “Lưu nội dung” để áp dụng.`);
     } catch { setMessage("Không thể kết nối để tải ảnh mốc."); } finally { setUploadingMilestone(null); }
   }
 
@@ -100,7 +116,7 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
               <label className={styles.secondary}>{uploadingMilestone === index ? "Đang tải…" : item.imageSrc ? "Thay ảnh" : "Tải ảnh"}<input hidden type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={busy || uploadingMilestone !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMilestoneImage(index, file); event.currentTarget.value = ""; }} /></label>
               {item.imageSrc ? <button className={styles.secondary} type="button" disabled={busy || uploadingMilestone !== null} onClick={(event) => setCropState({ index, restoreTarget: event.currentTarget })}>Chỉnh khung ảnh</button> : null}
               {item.imageSrc ? <button className={styles.secondary} type="button" disabled={busy || uploadingMilestone !== null} onClick={() => updateMilestone(index, { imageSrc: null, ...defaultCrop })}>Gỡ ảnh</button> : null}
-              <small>JPG, PNG, WebP, AVIF hoặc GIF · tối đa 12 MB.</small>
+              <small>JPG, PNG, WebP, AVIF hoặc GIF · ảnh lớn sẽ được tự tối ưu trước khi tải.</small>
             </div></div>
           {imagePositionField(index, item.imagePosition)}
           {field("Thời gian", item.date, (value) => updateMilestone(index, { date: value }))}{field("Tiêu đề", item.title, (value) => updateMilestone(index, { title: value }))}{field("Nội dung", item.description, (value) => updateMilestone(index, { description: value }), { multiline: true })}
