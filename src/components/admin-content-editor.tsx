@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { formatImageMegabytes, MAX_CLIENT_IMAGE_BYTES, prepareImageForUpload } from "@/lib/client-image-optimize";
+import { DEFAULT_TEXT_SCALE, MAX_TEXT_SCALE, MIN_TEXT_SCALE, TEXT_SCALE_STEP } from "@/lib/invitation-typography";
 import type { InvitationContent, LoveStoryMilestoneContent, StoryImagePosition } from "@/types/invitation-content";
 import { MediaCropEditor, type MediaCropValues } from "./media-crop-editor";
 import styles from "./admin-content-editor.module.css";
@@ -13,6 +14,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
 ];
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type CropState = { index: number; restoreTarget: HTMLButtonElement | null } | null;
+type ScaleControl = { value: number; onChange: (value: number) => void };
 const defaultCrop = { imageFocusX: 50, imageFocusY: 50, imageZoom: 1 } as const;
 
 export function AdminContentEditor({ initialContent, fetcher }: { initialContent: InvitationContent; fetcher?: Fetcher }) {
@@ -37,6 +39,13 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
 
   function updateMilestone(index: number, patch: Partial<LoveStoryMilestoneContent>) {
     setForm((current) => ({ ...current, story: { ...current.story, milestones: current.story.milestones.map((item, i) => i === index ? { ...item, ...patch } : item) } }));
+  }
+
+  function rootScale(key: string): ScaleControl {
+    return {
+      value: form.fontScales?.[key] ?? DEFAULT_TEXT_SCALE,
+      onChange: (value) => setForm((current) => ({ ...current, fontScales: { ...(current.fontScales ?? {}), [key]: value } })),
+    };
   }
 
   async function uploadMilestoneImage(index: number, file: File) {
@@ -77,12 +86,20 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
     setForm((current) => {
       const index = current.story.milestones.length;
       const imagePosition: StoryImagePosition = index === 0 ? "center" : index % 2 === 0 ? "right" : "left";
-      return { ...current, story: { ...current.story, milestones: [...current.story.milestones, { date: "Mốc mới", title: "Tiêu đề mới", description: "Nội dung câu chuyện...", imageSrc: null, ...defaultCrop, imagePosition }] } };
+      return { ...current, story: { ...current.story, milestones: [...current.story.milestones, { date: "Mốc mới", title: "Tiêu đề mới", description: "Nội dung câu chuyện...", dateFontScale: 100, titleFontScale: 100, descriptionFontScale: 100, imageSrc: null, ...defaultCrop, imagePosition }] } };
     });
   }
   function removeMilestone(index: number) { setForm((current) => ({ ...current, story: { ...current.story, milestones: current.story.milestones.filter((_, i) => i !== index) } })); }
 
-  const field = (label: string, value: string, onChange: (value: string) => void, options?: { multiline?: boolean; type?: string; maxLength?: number }) => <label className={styles.field}><span>{label}</span>{options?.multiline ? <textarea value={value} onChange={(event) => onChange(event.target.value)} maxLength={options.maxLength ?? 600} required /> : <input type={options?.type ?? "text"} value={value} onChange={(event) => onChange(event.target.value)} maxLength={options?.maxLength ?? 220} required />}</label>;
+  const fontScaleControl = (scale: ScaleControl) => <label className={styles.fontScale}>
+    <span>Cỡ chữ</span>
+    <input type="range" min={MIN_TEXT_SCALE} max={MAX_TEXT_SCALE} step={TEXT_SCALE_STEP} value={scale.value} onChange={(event) => scale.onChange(Number(event.target.value))} />
+    <output>{scale.value}%</output>
+  </label>;
+  const field = (label: string, value: string, onChange: (value: string) => void, options?: { multiline?: boolean; type?: string; maxLength?: number; scale?: ScaleControl }) => <div className={styles.field}>
+    <label className={styles.fieldControl}><span>{label}</span>{options?.multiline ? <textarea value={value} onChange={(event) => onChange(event.target.value)} maxLength={options.maxLength ?? 600} required /> : <input type={options?.type ?? "text"} value={value} onChange={(event) => onChange(event.target.value)} maxLength={options?.maxLength ?? 220} required />}</label>
+    {options?.scale ? fontScaleControl(options.scale) : null}
+  </div>;
   const imagePositionField = (index: number, value: StoryImagePosition) => <label className={styles.storyPosition}><span>Vị trí ảnh</span><select value={value} onChange={(event) => updateMilestone(index, { imagePosition: event.target.value as StoryImagePosition })}><option value="left">Trái</option><option value="center">Giữa</option><option value="right">Phải</option></select>{index === 0 ? <small>Mốc đầu mặc định ở giữa; khi để Giữa, ảnh đầu sẽ mở story trước timeline.</small> : null}</label>;
 
   const cropMilestone = cropState ? form.story.milestones[cropState.index] : undefined;
@@ -90,25 +107,26 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
   return <main className={styles.shell}>
     <header className={styles.header}><div><p>Editor nội dung</p><h1>Chỉnh từng section của thiệp</h1><span>Thay đổi ở đây được lưu vào SQLite và áp dụng cho cả thiệp chung lẫn link khách mời.</span></div><a href="/" target="_blank" rel="noreferrer">Mở thiệp ↗</a></header>
     <div className={styles.tabs} role="tablist" aria-label="Các section thiệp">{tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={active === tab.id} className={active === tab.id ? styles.active : ""} onClick={() => setActive(tab.id)}>{tab.label}</button>)}</div>
+    <p className={styles.scaleHint}>Mỗi nội dung hiển thị có cỡ chữ riêng · 100% = kích thước thiết kế gốc, vẫn giữ responsive trên mobile và desktop.</p>
 
     <form className={styles.panel} onSubmit={save}>
       {active === "couple" ? <div className={styles.grid}>
-        {field("Tên đầy đủ chú rể", form.couple.groom, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, groom: value } })))}
-        {field("Tên đầy đủ cô dâu", form.couple.bride, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, bride: value } })))}
-        {field("Tên ngắn chú rể", form.couple.shortGroomName, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, shortGroomName: value } })), { maxLength: 60 })}
-        {field("Tên ngắn cô dâu", form.couple.shortBrideName, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, shortBrideName: value } })), { maxLength: 60 })}
-        {field("Eyebrow section", form.coupleSection.eyebrow, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, eyebrow: value } })))}
-        {field("Tiêu đề section", form.coupleSection.title, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, title: value } })))}
-        {field("Nhãn chú rể", form.coupleSection.groomRole, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, groomRole: value } })))}
-        {field("Nhãn cô dâu", form.coupleSection.brideRole, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, brideRole: value } })))}
-        <div className={styles.wide}>{field("Mô tả chú rể", form.couple.groomBio, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, groomBio: value } })), { multiline: true })}</div>
-        <div className={styles.wide}>{field("Mô tả cô dâu", form.couple.brideBio, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, brideBio: value } })), { multiline: true })}</div>
+        {field("Tên đầy đủ chú rể", form.couple.groom, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, groom: value } })), { scale: rootScale("couple.groom") })}
+        {field("Tên đầy đủ cô dâu", form.couple.bride, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, bride: value } })), { scale: rootScale("couple.bride") })}
+        {field("Tên ngắn chú rể", form.couple.shortGroomName, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, shortGroomName: value } })), { maxLength: 60, scale: rootScale("couple.shortGroomName") })}
+        {field("Tên ngắn cô dâu", form.couple.shortBrideName, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, shortBrideName: value } })), { maxLength: 60, scale: rootScale("couple.shortBrideName") })}
+        {field("Eyebrow section", form.coupleSection.eyebrow, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, eyebrow: value } })), { scale: rootScale("coupleSection.eyebrow") })}
+        {field("Tiêu đề section", form.coupleSection.title, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, title: value } })), { scale: rootScale("coupleSection.title") })}
+        {field("Nhãn chú rể", form.coupleSection.groomRole, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, groomRole: value } })), { scale: rootScale("coupleSection.groomRole") })}
+        {field("Nhãn cô dâu", form.coupleSection.brideRole, (value) => setForm((c) => ({ ...c, coupleSection: { ...c.coupleSection, brideRole: value } })), { scale: rootScale("coupleSection.brideRole") })}
+        <div className={styles.wide}>{field("Mô tả chú rể", form.couple.groomBio, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, groomBio: value } })), { multiline: true, scale: rootScale("couple.groomBio") })}</div>
+        <div className={styles.wide}>{field("Mô tả cô dâu", form.couple.brideBio, (value) => setForm((c) => ({ ...c, couple: { ...c.couple, brideBio: value } })), { multiline: true, scale: rootScale("couple.brideBio") })}</div>
       </div> : null}
-      {active === "cover" ? <div className={styles.grid}>{field("Eyebrow", form.cover.eyebrow, (value) => setForm((c) => ({ ...c, cover: { ...c.cover, eyebrow: value } })))}{field("Nút khám phá", form.cover.scrollCue, (value) => setForm((c) => ({ ...c, cover: { ...c.cover, scrollCue: value } })))}<div className={styles.wide}>{field("Lời mở đầu", form.cover.message, (value) => setForm((c) => ({ ...c, cover: { ...c.cover, message: value } })), { multiline: true })}</div></div> : null}
-      {active === "countdown" ? <div className={styles.grid}>{field("Eyebrow", form.countdown.eyebrow, (value) => setForm((c) => ({ ...c, countdown: { ...c.countdown, eyebrow: value } })))}{field("Tiêu đề", form.countdown.title, (value) => setForm((c) => ({ ...c, countdown: { ...c.countdown, title: value } })))}</div> : null}
+      {active === "cover" ? <div className={styles.grid}>{field("Eyebrow", form.cover.eyebrow, (value) => setForm((c) => ({ ...c, cover: { ...c.cover, eyebrow: value } })), { scale: rootScale("cover.eyebrow") })}{field("Nút khám phá", form.cover.scrollCue, (value) => setForm((c) => ({ ...c, cover: { ...c.cover, scrollCue: value } })), { scale: rootScale("cover.scrollCue") })}<div className={styles.wide}>{field("Lời mở đầu", form.cover.message, (value) => setForm((c) => ({ ...c, cover: { ...c.cover, message: value } })), { multiline: true, scale: rootScale("cover.message") })}</div></div> : null}
+      {active === "countdown" ? <div className={styles.grid}>{field("Eyebrow", form.countdown.eyebrow, (value) => setForm((c) => ({ ...c, countdown: { ...c.countdown, eyebrow: value } })), { scale: rootScale("countdown.eyebrow") })}{field("Tiêu đề", form.countdown.title, (value) => setForm((c) => ({ ...c, countdown: { ...c.countdown, title: value } })), { scale: rootScale("countdown.title") })}</div> : null}
 
       {active === "story" ? <div>
-        <div className={styles.grid}>{field("Eyebrow", form.story.eyebrow, (value) => setForm((c) => ({ ...c, story: { ...c.story, eyebrow: value } })))}{field("Tiêu đề", form.story.title, (value) => setForm((c) => ({ ...c, story: { ...c.story, title: value } })))}</div>
+        <div className={styles.grid}>{field("Eyebrow", form.story.eyebrow, (value) => setForm((c) => ({ ...c, story: { ...c.story, eyebrow: value } })), { scale: rootScale("story.eyebrow") })}{field("Tiêu đề", form.story.title, (value) => setForm((c) => ({ ...c, story: { ...c.story, title: value } })), { scale: rootScale("story.title") })}</div>
         <div className={styles.storyList}>{form.story.milestones.map((item, index) => <article className={styles.storyItem} key={index}>
           <div className={styles.storyHead}><strong>Mốc {index + 1}</strong><button type="button" onClick={() => removeMilestone(index)} disabled={form.story.milestones.length <= 1 || uploadingMilestone === index}>Xóa</button></div>
           <div className={styles.storyImageEditor}><div className={styles.storyImagePreview}>{item.imageSrc ? <Image src={item.imageSrc} alt={`Ảnh ${item.title}`} width={720} height={450} unoptimized style={{ objectFit: "cover", objectPosition: `${item.imageFocusX}% ${item.imageFocusY}%`, transform: `scale(${item.imageZoom})`, transformOrigin: `${item.imageFocusX}% ${item.imageFocusY}%` }} /> : <span>Chưa có ảnh cho mốc này</span>}</div>
@@ -119,28 +137,30 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
               <small>JPG, PNG, WebP, AVIF hoặc GIF · ảnh lớn sẽ được tự tối ưu trước khi tải.</small>
             </div></div>
           {imagePositionField(index, item.imagePosition)}
-          {field("Thời gian", item.date, (value) => updateMilestone(index, { date: value }))}{field("Tiêu đề", item.title, (value) => updateMilestone(index, { title: value }))}{field("Nội dung", item.description, (value) => updateMilestone(index, { description: value }), { multiline: true })}
+          {field("Thời gian", item.date, (value) => updateMilestone(index, { date: value }), { scale: { value: item.dateFontScale ?? DEFAULT_TEXT_SCALE, onChange: (value) => updateMilestone(index, { dateFontScale: value }) } })}
+          {field("Tiêu đề", item.title, (value) => updateMilestone(index, { title: value }), { scale: { value: item.titleFontScale ?? DEFAULT_TEXT_SCALE, onChange: (value) => updateMilestone(index, { titleFontScale: value }) } })}
+          {field("Nội dung", item.description, (value) => updateMilestone(index, { description: value }), { multiline: true, scale: { value: item.descriptionFontScale ?? DEFAULT_TEXT_SCALE, onChange: (value) => updateMilestone(index, { descriptionFontScale: value }) } })}
         </article>)}</div>
         <button className={styles.secondary} type="button" onClick={addMilestone} disabled={form.story.milestones.length >= 12 || uploadingMilestone !== null}>+ Thêm mốc</button>
       </div> : null}
 
       {active === "event" ? <div className={styles.grid}>
-        {field("Eyebrow", form.event.eyebrow, (value) => setForm((c) => ({ ...c, event: { ...c.event, eyebrow: value } })))}{field("Tiêu đề", form.event.title, (value) => setForm((c) => ({ ...c, event: { ...c.event, title: value } })))}
+        {field("Eyebrow", form.event.eyebrow, (value) => setForm((c) => ({ ...c, event: { ...c.event, eyebrow: value } })), { scale: rootScale("event.eyebrow") })}{field("Tiêu đề", form.event.title, (value) => setForm((c) => ({ ...c, event: { ...c.event, title: value } })), { scale: rootScale("event.title") })}
         {field("Ngày giờ ISO (dùng countdown)", form.event.dateTime, (value) => setForm((c) => ({ ...c, event: { ...c.event, dateTime: value } })))}{field("Hạn RSVP ISO", form.event.rsvpDeadline, (value) => setForm((c) => ({ ...c, event: { ...c.event, rsvpDeadline: value } })))}
-        {field("Nhãn ngày hiển thị", form.event.dateLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, dateLabel: value } })))}{field("Giờ hiển thị", form.event.timeLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeLabel: value } })))}
-        {field("Nhãn 'Thời gian'", form.event.timeHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeHeading: value } })))}{field("Nhãn 'Địa điểm'", form.event.venueHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, venueHeading: value } })))}{field("Nhãn chỉ đường", form.event.directionsLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, directionsLabel: value } })))}
-        {field("Tên địa điểm", form.event.venue, (value) => setForm((c) => ({ ...c, event: { ...c.event, venue: value } })))}{field("Địa chỉ", form.event.address, (value) => setForm((c) => ({ ...c, event: { ...c.event, address: value } })))}<div className={styles.wide}>{field("Google Maps URL", form.event.mapsUrl, (value) => setForm((c) => ({ ...c, event: { ...c.event, mapsUrl: value } })), { type: "url", maxLength: 2048 })}</div>
+        {field("Nhãn ngày hiển thị", form.event.dateLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, dateLabel: value } })), { scale: rootScale("event.dateLabel") })}{field("Giờ hiển thị", form.event.timeLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeLabel: value } })), { scale: rootScale("event.timeLabel") })}
+        {field("Nhãn 'Thời gian'", form.event.timeHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeHeading: value } })), { scale: rootScale("event.timeHeading") })}{field("Nhãn 'Địa điểm'", form.event.venueHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, venueHeading: value } })), { scale: rootScale("event.venueHeading") })}{field("Nhãn chỉ đường", form.event.directionsLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, directionsLabel: value } })), { scale: rootScale("event.directionsLabel") })}
+        {field("Tên địa điểm", form.event.venue, (value) => setForm((c) => ({ ...c, event: { ...c.event, venue: value } })), { scale: rootScale("event.venue") })}{field("Địa chỉ", form.event.address, (value) => setForm((c) => ({ ...c, event: { ...c.event, address: value } })), { scale: rootScale("event.address") })}<div className={styles.wide}>{field("Google Maps URL", form.event.mapsUrl, (value) => setForm((c) => ({ ...c, event: { ...c.event, mapsUrl: value } })), { type: "url", maxLength: 2048 })}</div>
       </div> : null}
-      {active === "gallery" ? <div className={styles.grid}>{field("Eyebrow", form.gallery.eyebrow, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, eyebrow: value } })))}{field("Tiêu đề", form.gallery.title, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, title: value } })))}</div> : null}
+      {active === "gallery" ? <div className={styles.grid}>{field("Eyebrow", form.gallery.eyebrow, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, eyebrow: value } })), { scale: rootScale("gallery.eyebrow") })}{field("Tiêu đề", form.gallery.title, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, title: value } })), { scale: rootScale("gallery.title") })}</div> : null}
       {active === "personal" ? <div className={styles.grid}>
-        {field("Eyebrow thiệp riêng", form.personal.eyebrow, (value) => setForm((c) => ({ ...c, personal: { ...c.personal, eyebrow: value } })))}{field("Eyebrow RSVP", form.rsvp.eyebrow, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, eyebrow: value } })))}<div className={styles.wide}>{field("Lời mời riêng", form.personal.message, (value) => setForm((c) => ({ ...c, personal: { ...c.personal, message: value } })), { multiline: true })}</div>
-        {field("Tiêu đề RSVP", form.rsvp.title, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, title: value } })))}{field("Lời nhắc trước hạn", form.rsvp.intro, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, intro: value } })))}{field("Lời chào trước tên khách", form.rsvp.greetingPrefix, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, greetingPrefix: value } })))}
-        {field("Câu hỏi tham dự", form.rsvp.attendanceQuestion, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, attendanceQuestion: value } })))}{field("Lựa chọn tham dự", form.rsvp.attendingLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, attendingLabel: value } })))}{field("Lựa chọn không tham dự", form.rsvp.declinedLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, declinedLabel: value } })))}
-        {field("Nhãn số người", form.rsvp.guestCountLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, guestCountLabel: value } })))}{field("Hậu tố số người", form.rsvp.guestCountSuffix, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, guestCountSuffix: value } })), { maxLength: 40 })}{field("Nhãn lời nhắn", form.rsvp.messageLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, messageLabel: value } })))}
-        {field("Placeholder lời nhắn", form.rsvp.messagePlaceholder, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, messagePlaceholder: value } })))}{field("Nút gửi", form.rsvp.submitLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, submitLabel: value } })))}{field("Nhãn đang gửi", form.rsvp.submittingLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, submittingLabel: value } })))}
-        {field("Thông báo hết hạn", form.rsvp.closedMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, closedMessage: value } })))}{field("Thông báo thành công mặc định", form.rsvp.successMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, successMessage: value } })))}
+        {field("Eyebrow thiệp riêng", form.personal.eyebrow, (value) => setForm((c) => ({ ...c, personal: { ...c.personal, eyebrow: value } })), { scale: rootScale("personal.eyebrow") })}{field("Eyebrow RSVP", form.rsvp.eyebrow, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, eyebrow: value } })), { scale: rootScale("rsvp.eyebrow") })}<div className={styles.wide}>{field("Lời mời riêng", form.personal.message, (value) => setForm((c) => ({ ...c, personal: { ...c.personal, message: value } })), { multiline: true, scale: rootScale("personal.message") })}</div>
+        {field("Tiêu đề RSVP", form.rsvp.title, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, title: value } })), { scale: rootScale("rsvp.title") })}{field("Lời nhắc trước hạn", form.rsvp.intro, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, intro: value } })), { scale: rootScale("rsvp.intro") })}{field("Lời chào trước tên khách", form.rsvp.greetingPrefix, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, greetingPrefix: value } })), { scale: rootScale("rsvp.greetingPrefix") })}
+        {field("Câu hỏi tham dự", form.rsvp.attendanceQuestion, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, attendanceQuestion: value } })), { scale: rootScale("rsvp.attendanceQuestion") })}{field("Lựa chọn tham dự", form.rsvp.attendingLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, attendingLabel: value } })), { scale: rootScale("rsvp.attendingLabel") })}{field("Lựa chọn không tham dự", form.rsvp.declinedLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, declinedLabel: value } })), { scale: rootScale("rsvp.declinedLabel") })}
+        {field("Nhãn số người", form.rsvp.guestCountLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, guestCountLabel: value } })), { scale: rootScale("rsvp.guestCountLabel") })}{field("Hậu tố số người", form.rsvp.guestCountSuffix, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, guestCountSuffix: value } })), { maxLength: 40, scale: rootScale("rsvp.guestCountSuffix") })}{field("Nhãn lời nhắn", form.rsvp.messageLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, messageLabel: value } })), { scale: rootScale("rsvp.messageLabel") })}
+        {field("Placeholder lời nhắn", form.rsvp.messagePlaceholder, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, messagePlaceholder: value } })), { scale: rootScale("rsvp.messagePlaceholder") })}{field("Nút gửi", form.rsvp.submitLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, submitLabel: value } })), { scale: rootScale("rsvp.submitLabel") })}{field("Nhãn đang gửi", form.rsvp.submittingLabel, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, submittingLabel: value } })), { scale: rootScale("rsvp.submittingLabel") })}
+        {field("Thông báo hết hạn", form.rsvp.closedMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, closedMessage: value } })), { scale: rootScale("rsvp.closedMessage") })}{field("Thông báo thành công mặc định", form.rsvp.successMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, successMessage: value } })), { scale: rootScale("rsvp.successMessage") })}
       </div> : null}
-      {active === "footer" ? <div className={styles.grid}>{field("Tên footer", form.footer.title, (value) => setForm((c) => ({ ...c, footer: { ...c.footer, title: value } })))}{field("Lời footer", form.footer.message, (value) => setForm((c) => ({ ...c, footer: { ...c.footer, message: value } })))}</div> : null}
+      {active === "footer" ? <div className={styles.grid}>{field("Tên footer", form.footer.title, (value) => setForm((c) => ({ ...c, footer: { ...c.footer, title: value } })), { scale: rootScale("footer.title") })}{field("Lời footer", form.footer.message, (value) => setForm((c) => ({ ...c, footer: { ...c.footer, message: value } })), { scale: rootScale("footer.message") })}</div> : null}
       <div className={styles.actions}><button type="submit" disabled={busy || uploadingMilestone !== null}>{busy ? "Đang lưu…" : "Lưu nội dung"}</button><span aria-live="polite">{message}</span></div>
     </form>
 
