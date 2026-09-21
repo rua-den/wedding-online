@@ -1,8 +1,9 @@
 "use client";
 
 import { OPEN_INVITATION_EVENT } from "@/lib/invitation-events";
+import { scaledTextStyle } from "@/lib/invitation-typography";
 
-export function OpenInvitationButton({ label, targetId }: { label: string; targetId: string }) {
+export function OpenInvitationButton({ label, targetId, fontScale }: { label: string; targetId: string; fontScale?: number }) {
   function openInvitation() {
     window.dispatchEvent(new Event(OPEN_INVITATION_EVENT));
     const target = document.getElementById(targetId);
@@ -12,7 +13,7 @@ export function OpenInvitationButton({ label, targetId }: { label: string; targe
   }
 
   return <button type="button" className="open-invitation-button scroll-cue" onClick={openInvitation}>
-    {label}
+    <span style={scaledTextStyle(fontScale)}>{label}</span>
     <span aria-hidden="true" className="open-invitation-arrow">↓</span>
   </button>;
 }
