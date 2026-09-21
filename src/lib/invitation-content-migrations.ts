@@ -1,4 +1,4 @@
-export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 5;
+export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 6;
 
 export class FutureInvitationContentVersionError extends Error {
   constructor(public readonly storedVersion: number) {
@@ -82,11 +82,31 @@ function migrateV4ToV5(input: unknown): unknown {
   };
 }
 
+function migrateV5ToV6(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  const story = input.story;
+  const migratedStory = isRecord(story) && Array.isArray(story.milestones) ? {
+    ...story,
+    milestones: story.milestones.map((milestone) => isRecord(milestone) ? {
+      ...milestone,
+      dateFontScale: milestone.dateFontScale ?? 100,
+      titleFontScale: milestone.titleFontScale ?? 100,
+      descriptionFontScale: milestone.descriptionFontScale ?? 100,
+    } : milestone),
+  } : story;
+  return {
+    ...input,
+    fontScales: isRecord(input.fontScales) ? input.fontScales : {},
+    story: migratedStory,
+  };
+}
+
 const migrations: Record<number, (input: unknown) => unknown> = {
   1: migrateV1ToV2,
   2: migrateV2ToV3,
   3: migrateV3ToV4,
   4: migrateV4ToV5,
+  5: migrateV5ToV6,
 };
 
 export function migrateInvitationContent(input: unknown, storedVersion: number): { content: unknown; version: number } {
