@@ -47,6 +47,7 @@ function adminThemeStyle({ themeId, fontId }: AdminAppearance): CSSProperties {
     "--admin-font-display": font.cssFamily,
     background: tokens.canvas,
     color: tokens.ink,
+    colorScheme: theme.id === "midnight-gold" ? "dark" : "light",
     fontFamily: font.cssFamily,
   } as CSSProperties;
 }
