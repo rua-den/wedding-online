@@ -40,6 +40,43 @@ test("admin saves a Vietnamese wedding font and public invitation applies it", a
   }
 });
 
+test("midnight theme keeps text readable when switching to a custom font", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/appearance");
+
+  const adminScope = page.locator(".admin-theme-scope");
+  const adminHeading = page.getByRole("heading", { name: "Giao diện thiệp" });
+
+  await page.getByRole("radio", { name: /Classic Serif/ }).click();
+  const classicAdminFont = await adminHeading.evaluate((element) => getComputedStyle(element).fontFamily);
+
+  await page.getByRole("radio", { name: /Midnight Gold/ }).click();
+  await page.getByRole("radio", { name: /Cormorant Garamond/ }).click();
+
+  await expect(adminScope).toHaveAttribute("data-admin-theme", "midnight-gold");
+  await expect(adminScope).toHaveAttribute("data-admin-font", "cormorant-garamond");
+  await expect(adminHeading).toBeVisible();
+  await expect.poll(() => adminScope.evaluate((element) => getComputedStyle(element).color)).toBe("rgb(247, 241, 230)");
+  await expect.poll(() => adminScope.evaluate((element) => getComputedStyle(element).colorScheme)).toContain("dark");
+  await expect.poll(() => adminHeading.evaluate((element) => getComputedStyle(element).fontFamily)).not.toBe(classicAdminFont);
+
+  await page.goto("/?previewTheme=midnight-gold&previewFont=cormorant-garamond");
+  const publicScope = page.locator(".invitation-theme-scope");
+  const heroTitle = page.locator("#invitation-title");
+  const countdownTitle = page.locator("#countdown-title");
+
+  await expect(publicScope).toHaveAttribute("data-invitation-theme", "midnight-gold");
+  await expect(publicScope).toHaveAttribute("data-invitation-font", "cormorant-garamond");
+  await expect(heroTitle).toBeVisible();
+  await expect.poll(() => publicScope.evaluate((element) => getComputedStyle(element).color)).toBe("rgb(247, 241, 230)");
+  await expect.poll(() => publicScope.evaluate((element) => getComputedStyle(element).colorScheme)).toContain("dark");
+  await expect.poll(() => heroTitle.evaluate((element) => getComputedStyle(element).fontFamily)).not.toBe(classicAdminFont);
+
+  await countdownTitle.scrollIntoViewIfNeeded();
+  await expect(countdownTitle).toBeVisible();
+  await expect.poll(() => page.locator(".countdown-section").evaluate((element) => getComputedStyle(element).color)).toBe("rgb(247, 241, 230)");
+});
+
 test("admin follows the selected invitation theme and every system button is rounded", async ({ page }) => {
   await login(page);
   const initial = await readAppearance(page);
