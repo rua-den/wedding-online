@@ -31,6 +31,7 @@ export function InvitationThemeScope({
       style={{
         ...themeCssVariables(theme),
         "--invitation-font-display": font.cssFamily,
+        colorScheme: theme.id === "midnight-gold" ? "dark" : "light",
       } as CSSProperties}
     >
       {children}
