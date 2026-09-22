@@ -40,7 +40,7 @@ test("admin media upload stays renderable on the public invitation", async ({ pa
 
     const renderedSrc = await image.getAttribute("src");
     expect(renderedSrc).toBeTruthy();
-    expect(renderedSrc).toContain("/_next/image");
+    expect(new URL(renderedSrc!, page.url()).pathname).toBe(hero!.src);
 
     const renderedResponse = await page.request.get(renderedSrc!);
     expect(renderedResponse.ok()).toBeTruthy();
