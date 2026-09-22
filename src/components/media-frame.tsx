@@ -24,6 +24,22 @@ export function mediaFrameStyle(asset: Pick<PublicMediaAsset, "focusX" | "focusY
   };
 }
 
+export function mediaFrameSizes(slot: PublicMediaAsset["slot"]): string {
+  switch (slot) {
+    case "gallery":
+      return "(min-width: 1180px) 22vw, (min-width: 760px) 31vw, 48vw";
+    case "groom":
+    case "bride":
+      return "(min-width: 960px) 20rem, (min-width: 640px) 29vw, 58vw";
+    case "story":
+      return "(min-width: 960px) 50vw, 100vw";
+    case "venue":
+      return "(min-width: 960px) 50vw, 100vw";
+    default:
+      return "100vw";
+  }
+}
+
 function fallbackVariant(slot: PublicMediaAsset["slot"]) {
   return slot === "groom" || slot === "bride" ? "portrait" : slot;
 }
@@ -64,8 +80,7 @@ export function MediaFrame({ asset, className, imageClassName, alt, loading, fal
           src={asset.src}
           alt={imageAlt}
           fill
-          unoptimized
-          sizes="100vw"
+          sizes={mediaFrameSizes(asset.slot)}
           loading={loading}
           onError={() => setFailedSrc(asset.src)}
           style={{
