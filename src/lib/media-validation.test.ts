@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { resolveUploadExtension, validateImageFile, validateMediaUpload } from "./media-validation";
 
-function pngHeader(width: number, height: number): Uint8Array {
-  const bytes = new Uint8Array(24);
+function pngHeader(width: number, height: number): ArrayBuffer {
+  const buffer = new ArrayBuffer(24);
+  const bytes = new Uint8Array(buffer);
   bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
-  const view = new DataView(bytes.buffer);
+  const view = new DataView(buffer);
   view.setUint32(8, 13);
   bytes.set([0x49, 0x48, 0x44, 0x52], 12);
   view.setUint32(16, width);
   view.setUint32(20, height);
-  return bytes;
+  return buffer;
 }
 
 describe("media upload validation", () => {
