@@ -1,10 +1,12 @@
 import { basename, extname } from "node:path";
+import { imageDimensions, isSafeImageDimensions, MAX_RENDER_IMAGE_EDGE, MAX_RENDER_IMAGE_PIXELS } from "./image-dimensions";
 import { mediaSlots, type MediaSlot } from "./media-store";
 import { validateMediaAlt } from "./media-text";
 
 export { MAX_MEDIA_ALT_LENGTH, validateMediaAlt } from "./media-text";
 
 export const MAX_MEDIA_BYTES = 12 * 1024 * 1024;
+const IMAGE_METADATA_BYTES = 1024 * 1024;
 const mimeExtensions: Record<string, readonly string[]> = {
   "image/avif": [".avif"],
   "image/gif": [".gif"],
@@ -61,9 +63,14 @@ export async function validateImageFile(file: File): Promise<string> {
   if (file.size > MAX_MEDIA_BYTES) throw new Error("Ảnh không được vượt quá 12 MB.");
 
   const extension = resolveUploadExtension(file.name, file.type);
-  const header = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+  const header = new Uint8Array(await file.slice(0, Math.min(file.size, IMAGE_METADATA_BYTES)).arrayBuffer());
   if (!hasExpectedImageSignature(header, file.type)) {
     throw new Error("Tệp không có định dạng hình ảnh hợp lệ.");
+  }
+
+  const dimensions = imageDimensions(header, file.type);
+  if (dimensions && !isSafeImageDimensions(dimensions)) {
+    throw new Error(`Ảnh có độ phân giải quá lớn. Hãy dùng ảnh tối đa ${MAX_RENDER_IMAGE_EDGE}px mỗi cạnh và ${MAX_RENDER_IMAGE_PIXELS / 1_000_000}MP.`);
   }
   return extension;
 }
