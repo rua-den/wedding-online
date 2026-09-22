@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { resolveUploadExtension, validateImageFile, validateMediaUpload } from "./media-validation";
 
+function pngHeader(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(24);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(8, 13);
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return bytes;
+}
+
 describe("media upload validation", () => {
   it("accepts supported image metadata and trims alt text", () => {
     expect(validateMediaUpload({ slot: "hero", filename: "photo.jpg", mimeType: "image/jpeg", size: 1024, alt: "  Ảnh bìa  " })).toEqual({
@@ -28,11 +39,14 @@ describe("media upload validation", () => {
     expect(() => validateMediaUpload({ slot: "gallery", filename: "photo.jpg", mimeType: "image/png", size: 10, alt: "" })).toThrow("Phần mở rộng tệp không khớp với loại hình ảnh.");
   });
 
-  it("accepts an image whose bytes match its declared type", async () => {
-    const png = new File([
-      new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
-    ], "photo.png", { type: "image/png" });
+  it("accepts an image whose bytes and dimensions are safe", async () => {
+    const png = new File([pngHeader(1200, 800)], "photo.png", { type: "image/png" });
     await expect(validateImageFile(png)).resolves.toBe(".png");
+  });
+
+  it("rejects an image whose compressed bytes are small but decoded pixels are unsafe", async () => {
+    const huge = new File([pngHeader(8000, 6000)], "huge.png", { type: "image/png" });
+    await expect(validateImageFile(huge)).rejects.toThrow(/độ phân giải quá lớn/i);
   });
 
   it("rejects a file that only claims to be an image", async () => {
