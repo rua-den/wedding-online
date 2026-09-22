@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { MediaAsset } from "@/lib/media-store";
-import { MediaFrame, mediaFrameStyle } from "./media-frame";
+import { MediaFrame, mediaFrameSizes, mediaFrameStyle } from "./media-frame";
 
 const asset: MediaAsset = {
   id: 1,
@@ -31,13 +31,22 @@ describe("MediaFrame", () => {
     });
   });
 
-  it("renders a cover image using the persisted crop values", () => {
+  it("uses responsive display widths so gallery thumbnails do not request full-size originals", () => {
+    expect(mediaFrameSizes("hero")).toBe("100vw");
+    expect(mediaFrameSizes("gallery")).toContain("22vw");
+    expect(mediaFrameSizes("groom")).toContain("20rem");
+  });
+
+  it("renders a cover image using the persisted crop values through the Next image optimizer", () => {
     render(<MediaFrame asset={{ ...asset, focusX: 20, focusY: 70, zoom: 1.5 }} />);
 
-    expect(screen.getByRole("img")).toHaveStyle({
+    const image = screen.getByRole("img");
+    expect(image).toHaveStyle({
       objectPosition: "20% 70%",
       transform: "scale(1.5)",
     });
+    expect(image.getAttribute("srcset")).toContain("/_next/image");
+    expect(image).toHaveAttribute("sizes", "100vw");
   });
 
   it("renders a slot-specific fallback after an image load error", () => {
