@@ -1,4 +1,6 @@
 export const MAX_CLIENT_IMAGE_BYTES = 12 * 1024 * 1024;
+export const MAX_CLIENT_IMAGE_EDGE = 3840;
+export const MAX_CLIENT_IMAGE_PIXELS = 12_000_000;
 const TARGET_IMAGE_BYTES = Math.floor(MAX_CLIENT_IMAGE_BYTES * 0.96);
 const OUTPUT_TYPE = "image/webp";
 const MIN_QUALITY = 0.86;
@@ -56,13 +58,18 @@ async function decodeWithImageElement(file: File): Promise<DecodedImage> {
 
 async function decodeImage(file: File): Promise<DecodedImage> {
   if (typeof createImageBitmap === "function") {
-    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-    return {
-      source: bitmap,
-      width: bitmap.width,
-      height: bitmap.height,
-      close: () => bitmap.close(),
-    };
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        close: () => bitmap.close(),
+      };
+    } catch {
+      // Some browsers expose createImageBitmap but cannot decode every supported
+      // format through it. Fall back to the regular image decoder before failing.
+    }
   }
   return decodeWithImageElement(file);
 }
@@ -86,28 +93,41 @@ async function bestBlobForCurrentSize(canvas: HTMLCanvasElement): Promise<Blob |
   return best;
 }
 
+function safeDimensionScale(width: number, height: number): number {
+  const longestEdgeScale = MAX_CLIENT_IMAGE_EDGE / Math.max(width, height);
+  const pixelScale = Math.sqrt(MAX_CLIENT_IMAGE_PIXELS / (width * height));
+  return Math.min(1, longestEdgeScale, pixelScale);
+}
+
 export function formatImageMegabytes(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
 export async function prepareImageForUpload(file: File): Promise<PreparedImageUpload> {
-  if (file.size <= MAX_CLIENT_IMAGE_BYTES) {
-    return { file, optimized: false, originalBytes: file.size };
-  }
-
   if (file.type === "image/gif") {
-    throw new Error("GIF lớn hơn 12 MB không thể tự tối ưu mà vẫn giữ chuyển động. Hãy dùng JPG, PNG hoặc WebP cho ảnh cưới.");
+    if (file.size > MAX_CLIENT_IMAGE_BYTES) {
+      throw new Error("GIF lớn hơn 12 MB không thể tự tối ưu mà vẫn giữ chuyển động. Hãy dùng JPG, PNG hoặc WebP cho ảnh cưới.");
+    }
+    return { file, optimized: false, originalBytes: file.size };
   }
 
   const decoded = await decodeImage(file);
   try {
     if (decoded.width < 1 || decoded.height < 1) throw new Error("Không thể đọc kích thước ảnh.");
 
+    const dimensionScale = safeDimensionScale(decoded.width, decoded.height);
+    const oversizedBytes = file.size > MAX_CLIENT_IMAGE_BYTES;
+    const oversizedDimensions = dimensionScale < 1;
+    if (!oversizedBytes && !oversizedDimensions) {
+      return { file, optimized: false, originalBytes: file.size };
+    }
+
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Trình duyệt không hỗ trợ tối ưu ảnh.");
 
-    for (const scale of SCALE_STEPS) {
+    for (const scaleStep of SCALE_STEPS) {
+      const scale = dimensionScale * scaleStep;
       const width = Math.max(1, Math.round(decoded.width * scale));
       const height = Math.max(1, Math.round(decoded.height * scale));
       canvas.width = width;
