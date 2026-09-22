@@ -1,14 +1,16 @@
 import { createReadStream } from "node:fs";
-import { realpath, stat } from "node:fs/promises";
+import { open, realpath, stat } from "node:fs/promises";
 import { extname, isAbsolute, relative } from "node:path";
 import { Readable } from "node:stream";
 
 import { audioUploadPath } from "@/lib/audio-upload";
+import { imageDimensions, isSafeImageDimensions } from "@/lib/image-dimensions";
 import { mediaUploadDirectory, mediaUploadPath } from "@/lib/media-upload";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const IMAGE_METADATA_BYTES = 1024 * 1024;
 const contentTypes: Record<string, string> = {
   ".avif": "image/avif",
   ".gif": "image/gif",
@@ -57,6 +59,19 @@ function streamBody(path: string, range?: ByteRange): BodyInit {
   return Readable.toWeb(stream) as unknown as BodyInit;
 }
 
+async function hasSafeImageDimensions(path: string, size: number, mimeType: string): Promise<boolean> {
+  const handle = await open(path, "r");
+  try {
+    const byteLength = Math.min(size, IMAGE_METADATA_BYTES);
+    const buffer = Buffer.alloc(byteLength);
+    const { bytesRead } = await handle.read(buffer, 0, byteLength, 0);
+    const dimensions = imageDimensions(buffer.subarray(0, bytesRead), mimeType);
+    return !dimensions || isSafeImageDimensions(dimensions);
+  } finally {
+    await handle.close();
+  }
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ filename: string }> }): Promise<Response> {
   const { filename } = await params;
   const uploadPath = mediaUploadPath(filename) ?? audioUploadPath(filename);
@@ -73,6 +88,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
     if (!info.isFile()) return notFoundResponse();
 
     const isAudio = extension === ".mp3";
+    if (!isAudio && !(await hasSafeImageDimensions(target, info.size, contentType))) {
+      return notFoundResponse();
+    }
+
     const range = isAudio ? parseByteRange(request.headers.get("range"), info.size) : null;
     if (range === "invalid") {
       return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${info.size}`, "Accept-Ranges": "bytes", "Cache-Control": "public, max-age=31536000, immutable" } });
