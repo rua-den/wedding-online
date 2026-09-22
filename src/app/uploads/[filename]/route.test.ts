@@ -9,6 +9,16 @@ import { GET } from "./route";
 
 let directory: string;
 
+function pngHeader(width: number, height: number): Buffer {
+  const bytes = Buffer.alloc(24);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes, 0);
+  bytes.writeUInt32BE(13, 8);
+  bytes.write("IHDR", 12, "ascii");
+  bytes.writeUInt32BE(width, 16);
+  bytes.writeUInt32BE(height, 20);
+  return bytes;
+}
+
 beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), "wedding-upload-route-"));
   vi.stubEnv("MEDIA_UPLOAD_DIRECTORY", join(directory, "uploads-outside-public"));
@@ -22,7 +32,7 @@ afterEach(() => {
 describe("GET /uploads/[filename]", () => {
   it("serves a fresh generated image upload from the configured directory", async () => {
     const filename = createUploadFilename("photo.png");
-    const bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const bytes = pngHeader(1200, 800);
     const uploadDirectory = join(directory, "uploads-outside-public");
     mkdirSync(uploadDirectory, { recursive: true });
     writeFileSync(join(uploadDirectory, filename), bytes);
@@ -33,6 +43,18 @@ describe("GET /uploads/[filename]", () => {
     expect(response.headers.get("content-type")).toBe("image/png");
     expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);
+  });
+
+  it("quarantines a legacy image whose decoded dimensions could exhaust browser memory", async () => {
+    const filename = createUploadFilename("huge.png");
+    const uploadDirectory = join(directory, "uploads-outside-public");
+    mkdirSync(uploadDirectory, { recursive: true });
+    writeFileSync(join(uploadDirectory, filename), pngHeader(8000, 6000));
+
+    const response = await GET(new Request(`http://localhost/uploads/${filename}`), { params: Promise.resolve({ filename }) });
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
   it("streams MP3 byte ranges for browser playback and seeking", async () => {
