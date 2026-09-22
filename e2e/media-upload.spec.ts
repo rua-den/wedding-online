@@ -7,8 +7,18 @@ const onePixelPng = Buffer.from(
   "base64",
 );
 
+type MediaAssetSnapshot = { id: number; slot: string; src: string; active: boolean };
+
+async function readMedia(page: import("playwright/test").Page): Promise<MediaAssetSnapshot[]> {
+  const response = await page.request.get("/api/admin/media");
+  expect(response.ok()).toBeTruthy();
+  return (await response.json() as { assets: MediaAssetSnapshot[] }).assets;
+}
+
 test("admin media upload stays renderable on the public invitation", async ({ page }) => {
   await login(page);
+  const originalAssets = await readMedia(page);
+  const originalHero = originalAssets.find((asset) => asset.slot === "hero" && asset.active);
   await page.goto("/admin");
 
   const coverSlot = page.locator(".admin-media-slot").filter({ hasText: "Ảnh cover" });
@@ -21,13 +31,10 @@ test("admin media upload stays renderable on the public invitation", async ({ pa
   });
   await expect(page.getByText(/Đã tải ảnh lên|Đã tự tối ưu ảnh/)).toBeVisible();
 
-  const mediaResponse = await page.request.get("/api/admin/media");
-  expect(mediaResponse.ok()).toBeTruthy();
-  const body = await mediaResponse.json() as {
-    assets: Array<{ id: number; slot: string; src: string; active: boolean }>;
-  };
-  const hero = body.assets.find((asset) => asset.slot === "hero" && asset.active);
+  const assets = await readMedia(page);
+  const hero = assets.find((asset) => asset.slot === "hero" && asset.active);
   expect(hero).toBeTruthy();
+  expect(hero!.id).not.toBe(originalHero?.id);
 
   try {
     const rawResponse = await page.request.get(hero!.src);
@@ -50,5 +57,11 @@ test("admin media upload stays renderable on the public invitation", async ({ pa
       data: { id: hero!.id },
     });
     expect(deleted.ok()).toBeTruthy();
+    if (originalHero) {
+      const restored = await page.request.patch("/api/admin/media", {
+        data: { id: originalHero.id, active: true },
+      });
+      expect(restored.ok()).toBeTruthy();
+    }
   }
 });
