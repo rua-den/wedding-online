@@ -1,0 +1,35 @@
+name: Auto deploy production
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: auto-deploy-production
+  cancel-in-progress: true
+
+jobs:
+  trigger-deploy:
+    name: Trigger production deployment
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Dispatch CI with production deployment enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh workflow run ci.yml
+          --repo "$GITHUB_REPOSITORY"
+          --ref main
+          -f deploy_to_vps=true
