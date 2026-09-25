@@ -21,7 +21,6 @@ jobs:
     env:
       VPS_PORT: ${{ vars.VPS_PORT || '22' }}
       VPS_APP_ROOT: ${{ vars.VPS_APP_ROOT }}
-      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
 
     steps:
       - name: Validate and configure SSH
@@ -106,12 +105,24 @@ jobs:
           echo "Scheduled production snapshot completed: $SNAPSHOT_ID"
           REMOTE
 
-      - name: Download snapshot for offsite encryption
-        if: env.BACKUP_ENCRYPTION_KEY != ''
+      - name: Detect offsite backup configuration
+        id: offsite
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          if [ -n "$BACKUP_ENCRYPTION_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download and encrypt offsite snapshot
+        if: steps.offsite.outputs.enabled == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           SNAPSHOT_ID: ${{ steps.snapshot.outputs.id }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
           set -euo pipefail
           mkdir -m 700 offsite-plain
@@ -125,7 +136,7 @@ jobs:
           rm -rf offsite-plain production-backup.tar.gz
 
       - name: Upload encrypted offsite backup
-        if: env.BACKUP_ENCRYPTION_KEY != ''
+        if: steps.offsite.outputs.enabled == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: production-backup-${{ steps.snapshot.outputs.id }}
@@ -136,13 +147,14 @@ jobs:
       - name: Backup summary
         env:
           SNAPSHOT_ID: ${{ steps.snapshot.outputs.id }}
+          OFFSITE_ENABLED: ${{ steps.offsite.outputs.enabled }}
         run: |
           set -euo pipefail
           {
             echo "## Production backup"
             echo
             echo "✅ Verified VPS snapshot: \`$SNAPSHOT_ID\` (SQLite integrity check + uploads archive)."
-            if [ -n "$BACKUP_ENCRYPTION_KEY" ]; then
+            if [ "$OFFSITE_ENABLED" = "true" ]; then
               echo "✅ Encrypted offsite artifact uploaded with 30-day retention."
             else
               echo "⚠️ Offsite artifact skipped because \`BACKUP_ENCRYPTION_KEY\` is not configured. VPS snapshot is still complete."
