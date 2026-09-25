@@ -39,4 +39,26 @@ describe("production deployment security", () => {
     expect(nginx).toContain("add_header Strict-Transport-Security $wedding_hsts always");
     expect(read("next.config.ts")).not.toContain("Strict-Transport-Security");
   });
+
+  it("requires a verified persistent-data snapshot before auto deployment", () => {
+    const autoDeploy = read(".github/workflows/auto-deploy.yml");
+    const backupStep = autoDeploy.indexOf("Snapshot production before deploy");
+    const dispatchStep = autoDeploy.indexOf("Dispatch tested main revision");
+
+    expect(backupStep).toBeGreaterThan(0);
+    expect(dispatchStep).toBeGreaterThan(backupStep);
+    expect(autoDeploy).toContain("wal_checkpoint(TRUNCATE)");
+    expect(autoDeploy).toContain("integrity_check");
+    expect(autoDeploy).toContain("uploads.tgz");
+    expect(autoDeploy).toContain("cancel-in-progress: false");
+  });
+
+  it("keeps scheduled offsite backups encrypted and optional", () => {
+    const backupWorkflow = read(".github/workflows/backup-production.yml");
+    expect(backupWorkflow).toContain("aes-256-cbc -pbkdf2 -salt");
+    expect(backupWorkflow).toContain("BACKUP_ENCRYPTION_KEY");
+    expect(backupWorkflow).toContain("retention-days: 30");
+    expect(backupWorkflow).toContain("SQLite integrity check + uploads archive");
+    expect(backupWorkflow).not.toContain("path: offsite-plain");
+  });
 });
