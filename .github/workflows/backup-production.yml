@@ -1,0 +1,129 @@
+name: Backup production
+
+on:
+  schedule:
+    - cron: "15 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-production
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Snapshot production data
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      VPS_PORT: ${{ vars.VPS_PORT || '22' }}
+      VPS_APP_ROOT: ${{ vars.VPS_APP_ROOT }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+
+    steps:
+      - name: Validate and configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$VPS_HOST" || { echo "Missing production secret VPS_HOST"; exit 1; }
+          test -n "$VPS_USER" || { echo "Missing production secret VPS_USER"; exit 1; }
+          test -n "$VPS_SSH_PRIVATE_KEY" || { echo "Missing production secret VPS_SSH_PRIVATE_KEY"; exit 1; }
+          test -n "$VPS_KNOWN_HOSTS" || { echo "Missing production secret VPS_KNOWN_HOSTS"; exit 1; }
+          test -n "$VPS_APP_ROOT" || { echo "Missing production variable VPS_APP_ROOT"; exit 1; }
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_deploy"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Create verified VPS snapshot
+        id: snapshot
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          SNAPSHOT_ID="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          echo "id=$SNAPSHOT_ID" >> "$GITHUB_OUTPUT"
+          ssh -i "$HOME/.ssh/id_deploy" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" bash -s -- "$VPS_APP_ROOT" "$SNAPSHOT_ID" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          APP_ROOT="$1"
+          SNAPSHOT_ID="$2"
+          SHARED="$APP_ROOT/shared"
+          CURRENT="$APP_ROOT/current"
+          BACKUP_ROOT="$SHARED/data/backups/scheduled"
+          SNAPSHOT="$BACKUP_ROOT/$SNAPSHOT_ID"
+
+          test -L "$CURRENT" || { echo "Missing current production release"; exit 1; }
+          test -x "$(command -v node)" || { echo "Node.js is missing"; exit 1; }
+          test -f "$CURRENT/scripts/production-backup.mjs" || { echo "Current release does not include production backup utility"; exit 1; }
+          test -d "$SHARED/uploads" || { echo "Missing shared uploads"; exit 1; }
+          mkdir -p "$BACKUP_ROOT" "$SNAPSHOT"
+          chmod 700 "$SHARED/data/backups" "$BACKUP_ROOT" "$SNAPSHOT"
+
+          REVISION="unknown"
+          if [ -f "$APP_ROOT/DEPLOYED_REVISION" ]; then REVISION="$(tr -d '\r\n' < "$APP_ROOT/DEPLOYED_REVISION")"; fi
+          cd "$CURRENT"
+          BACKUP_REVISION="$REVISION" node scripts/production-backup.mjs "$SHARED/.env" "$SNAPSHOT"
+          tar -C "$SHARED" -czf "$SNAPSHOT/uploads.tgz" uploads
+          chmod 600 "$SNAPSHOT/uploads.tgz"
+          printf '%s\n' "$REVISION" > "$SNAPSHOT/COMPLETE"
+          chmod 600 "$SNAPSHOT/COMPLETE"
+
+          ls -1dt "$BACKUP_ROOT"/* 2>/dev/null | tail -n +15 | while IFS= read -r old_snapshot; do
+            rm -rf "$old_snapshot"
+          done
+          echo "Scheduled production snapshot completed: $SNAPSHOT_ID"
+          REMOTE
+
+      - name: Download snapshot for offsite encryption
+        if: env.BACKUP_ENCRYPTION_KEY != ''
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          SNAPSHOT_ID: ${{ steps.snapshot.outputs.id }}
+        run: |
+          set -euo pipefail
+          mkdir -m 700 offsite-plain
+          scp -i "$HOME/.ssh/id_deploy" -P "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -r \
+            "$VPS_USER@$VPS_HOST:$VPS_APP_ROOT/shared/data/backups/scheduled/$SNAPSHOT_ID" offsite-plain/
+          tar -C offsite-plain -czf production-backup.tar.gz "$SNAPSHOT_ID"
+          openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -in production-backup.tar.gz \
+            -out "production-backup-$SNAPSHOT_ID.tar.gz.enc" \
+            -pass env:BACKUP_ENCRYPTION_KEY
+          rm -rf offsite-plain production-backup.tar.gz
+
+      - name: Upload encrypted offsite backup
+        if: env.BACKUP_ENCRYPTION_KEY != ''
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: production-backup-${{ steps.snapshot.outputs.id }}
+          path: production-backup-${{ steps.snapshot.outputs.id }}.tar.gz.enc
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Backup summary
+        env:
+          SNAPSHOT_ID: ${{ steps.snapshot.outputs.id }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Production backup"
+            echo
+            echo "✅ Verified VPS snapshot: \`$SNAPSHOT_ID\` (SQLite integrity check + uploads archive)."
+            if [ -n "$BACKUP_ENCRYPTION_KEY" ]; then
+              echo "✅ Encrypted offsite artifact uploaded with 30-day retention."
+            else
+              echo "⚠️ Offsite artifact skipped because \`BACKUP_ENCRYPTION_KEY\` is not configured. VPS snapshot is still complete."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
