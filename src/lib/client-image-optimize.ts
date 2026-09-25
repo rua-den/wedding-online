@@ -3,12 +3,26 @@ import { MAX_RENDER_IMAGE_EDGE, MAX_RENDER_IMAGE_PIXELS } from "./image-dimensio
 export const MAX_CLIENT_IMAGE_BYTES = 12 * 1024 * 1024;
 export const MAX_CLIENT_IMAGE_EDGE = MAX_RENDER_IMAGE_EDGE;
 export const MAX_CLIENT_IMAGE_PIXELS = MAX_RENDER_IMAGE_PIXELS;
-const TARGET_IMAGE_BYTES = Math.floor(MAX_CLIENT_IMAGE_BYTES * 0.96);
 const OUTPUT_TYPE = "image/webp";
-const MIN_QUALITY = 0.86;
-const MAX_QUALITY = 0.96;
+const MIN_QUALITY = 0.78;
+const MAX_QUALITY = 0.9;
 const QUALITY_STEPS = 6;
 const SCALE_STEPS = [1, 0.9, 0.8, 0.72, 0.64] as const;
+
+export type ImageUploadPurpose = "hero" | "portrait" | "story" | "venue" | "gallery";
+export type ImageUploadProfile = {
+  maxEdge: number;
+  maxPixels: number;
+  targetBytes: number;
+};
+
+export const IMAGE_UPLOAD_PROFILES: Record<ImageUploadPurpose, ImageUploadProfile> = {
+  hero: { maxEdge: 2560, maxPixels: 5_000_000, targetBytes: Math.round(1.5 * 1024 * 1024) },
+  portrait: { maxEdge: 1800, maxPixels: 2_500_000, targetBytes: 850 * 1024 },
+  story: { maxEdge: 2200, maxPixels: 4_000_000, targetBytes: 1200 * 1024 },
+  venue: { maxEdge: 2200, maxPixels: 4_000_000, targetBytes: 1200 * 1024 },
+  gallery: { maxEdge: 1920, maxPixels: 3_000_000, targetBytes: 900 * 1024 },
+};
 
 type DecodedImage = {
   source: CanvasImageSource;
@@ -76,7 +90,7 @@ async function decodeImage(file: File): Promise<DecodedImage> {
   return decodeWithImageElement(file);
 }
 
-async function bestBlobForCurrentSize(canvas: HTMLCanvasElement): Promise<Blob | null> {
+async function bestBlobForCurrentSize(canvas: HTMLCanvasElement, targetBytes: number): Promise<Blob | null> {
   let low = MIN_QUALITY;
   let high = MAX_QUALITY;
   let best: Blob | null = null;
@@ -84,7 +98,7 @@ async function bestBlobForCurrentSize(canvas: HTMLCanvasElement): Promise<Blob |
   for (let step = 0; step < QUALITY_STEPS; step += 1) {
     const quality = (low + high) / 2;
     const blob = await canvasToBlob(canvas, quality);
-    if (blob.size <= TARGET_IMAGE_BYTES) {
+    if (blob.size <= targetBytes) {
       best = blob;
       low = quality;
     } else {
@@ -95,9 +109,9 @@ async function bestBlobForCurrentSize(canvas: HTMLCanvasElement): Promise<Blob |
   return best;
 }
 
-function safeDimensionScale(width: number, height: number): number {
-  const longestEdgeScale = MAX_CLIENT_IMAGE_EDGE / Math.max(width, height);
-  const pixelScale = Math.sqrt(MAX_CLIENT_IMAGE_PIXELS / (width * height));
+function safeDimensionScale(width: number, height: number, profile: ImageUploadProfile): number {
+  const longestEdgeScale = profile.maxEdge / Math.max(width, height);
+  const pixelScale = Math.sqrt(profile.maxPixels / (width * height));
   return Math.min(1, longestEdgeScale, pixelScale);
 }
 
@@ -105,7 +119,11 @@ export function formatImageMegabytes(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
-export async function prepareImageForUpload(file: File): Promise<PreparedImageUpload> {
+export function imageUploadProfile(purpose: ImageUploadPurpose): ImageUploadProfile {
+  return IMAGE_UPLOAD_PROFILES[purpose];
+}
+
+export async function prepareImageForUpload(file: File, purpose: ImageUploadPurpose = "hero"): Promise<PreparedImageUpload> {
   if (file.type === "image/gif") {
     if (file.size > MAX_CLIENT_IMAGE_BYTES) {
       throw new Error("GIF lớn hơn 12 MB không thể tự tối ưu mà vẫn giữ chuyển động. Hãy dùng JPG, PNG hoặc WebP cho ảnh cưới.");
@@ -113,12 +131,13 @@ export async function prepareImageForUpload(file: File): Promise<PreparedImageUp
     return { file, optimized: false, originalBytes: file.size };
   }
 
+  const profile = imageUploadProfile(purpose);
   const decoded = await decodeImage(file);
   try {
     if (decoded.width < 1 || decoded.height < 1) throw new Error("Không thể đọc kích thước ảnh.");
 
-    const dimensionScale = safeDimensionScale(decoded.width, decoded.height);
-    const oversizedBytes = file.size > MAX_CLIENT_IMAGE_BYTES;
+    const dimensionScale = safeDimensionScale(decoded.width, decoded.height, profile);
+    const oversizedBytes = file.size > profile.targetBytes;
     const oversizedDimensions = dimensionScale < 1;
     if (!oversizedBytes && !oversizedDimensions) {
       return { file, optimized: false, originalBytes: file.size };
@@ -137,7 +156,7 @@ export async function prepareImageForUpload(file: File): Promise<PreparedImageUp
       context.clearRect(0, 0, width, height);
       context.drawImage(decoded.source, 0, 0, width, height);
 
-      const blob = await bestBlobForCurrentSize(canvas);
+      const blob = await bestBlobForCurrentSize(canvas, profile.targetBytes);
       if (blob) {
         return {
           file: new File([blob], optimizedFilename(file.name), {
