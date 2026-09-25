@@ -123,7 +123,7 @@ export function imageUploadProfile(purpose: ImageUploadPurpose): ImageUploadProf
   return IMAGE_UPLOAD_PROFILES[purpose];
 }
 
-export async function prepareImageForUpload(file: File, purpose: ImageUploadPurpose = "hero"): Promise<PreparedImageUpload> {
+export async function prepareImageForUpload(file: File, purpose: ImageUploadPurpose = "story"): Promise<PreparedImageUpload> {
   if (file.type === "image/gif") {
     if (file.size > MAX_CLIENT_IMAGE_BYTES) {
       throw new Error("GIF lớn hơn 12 MB không thể tự tối ưu mà vẫn giữ chuyển động. Hãy dùng JPG, PNG hoặc WebP cho ảnh cưới.");
