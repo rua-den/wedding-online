@@ -25,11 +25,18 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Dispatch CI with production deployment enabled
+      - name: Dispatch tested main revision
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh workflow run ci.yml
-          --repo "$GITHUB_REPOSITORY"
-          --ref main
-          -f deploy_to_vps=true
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [ "$CURRENT_SHA" != "$TESTED_SHA" ]; then
+            echo "main advanced from tested $TESTED_SHA to $CURRENT_SHA; the newer push CI will own production deployment."
+            exit 0
+          fi
+          gh workflow run ci.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f deploy_to_vps=true
