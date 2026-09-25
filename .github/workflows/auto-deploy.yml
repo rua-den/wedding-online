@@ -97,7 +97,7 @@ jobs:
           rm -rf "$SNAPSHOT"
           mkdir -m 700 "$SNAPSHOT"
           cd "$CURRENT"
-          BACKUP_REVISION="$REVISION" node - "$SHARED/.env" "$SNAPSHOT" <<'NODE'
+          BACKUP_REVISION="$REVISION" node --input-type=commonjs - "$SHARED/.env" "$SNAPSHOT" <<'NODE'
           const BetterSqlite3 = require("better-sqlite3");
           const fs = require("node:fs");
           const path = require("node:path");
