@@ -24,7 +24,7 @@ async function readMedia(page: import("playwright/test").Page): Promise<MediaAss
   return (await response.json() as { assets: MediaAssetSnapshot[] }).assets;
 }
 
-test("admin media upload stays renderable on the public invitation", async ({ page }) => {
+test("admin media upload stays renderable through the responsive public image path", async ({ page }) => {
   await login(page);
   const originalAssets = await readMedia(page);
   const originalHero = originalAssets.find((asset) => asset.slot === "hero" && asset.active);
@@ -56,7 +56,10 @@ test("admin media upload stays renderable on the public invitation", async ({ pa
 
     const renderedSrc = await image.getAttribute("src");
     expect(renderedSrc).toBeTruthy();
-    expect(new URL(renderedSrc!, page.url()).pathname).toBe(hero!.src);
+    const renderedUrl = new URL(renderedSrc!, page.url());
+    expect(renderedUrl.pathname).toBe("/_next/image");
+    expect(renderedUrl.searchParams.get("url")).toBe(hero!.src);
+    expect(await image.getAttribute("srcset")).toContain("/_next/image");
 
     const renderedResponse = await page.request.get(renderedSrc!);
     expect(renderedResponse.ok()).toBeTruthy();

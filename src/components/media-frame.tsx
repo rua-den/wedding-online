@@ -1,79 +1,86 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type CSSProperties } from "react";
 
-import type { PublicMediaAsset } from "@/lib/media-store";
+import type { MediaSlot, PublicMediaAsset } from "@/lib/media-store";
 
-export type MediaFrameProps = {
+type MediaFrameProps = {
   asset: PublicMediaAsset;
   className?: string;
   imageClassName?: string;
   alt?: string;
   loading?: "eager" | "lazy";
-  fallback?: ReactNode;
-  children?: ReactNode;
+  sizes?: string;
 };
 
-export function mediaFrameStyle(asset: Pick<PublicMediaAsset, "focusX" | "focusY" | "zoom">): Pick<CSSProperties, "objectPosition" | "transform" | "transformOrigin"> {
-  const objectPosition = `${asset.focusX}% ${asset.focusY}%`;
+export function mediaFrameStyle(asset: PublicMediaAsset): CSSProperties {
   return {
-    objectPosition,
+    objectPosition: `${asset.focusX}% ${asset.focusY}%`,
     transform: `scale(${asset.zoom})`,
-    transformOrigin: objectPosition,
+    transformOrigin: `${asset.focusX}% ${asset.focusY}%`,
   };
 }
 
-function fallbackVariant(slot: PublicMediaAsset["slot"]) {
-  return slot === "groom" || slot === "bride" ? "portrait" : slot;
-}
-
-function fallbackMark(slot: PublicMediaAsset["slot"]) {
+export function mediaFrameSizes(slot: MediaSlot): string {
   switch (slot) {
+    case "hero":
+      return "100vw";
     case "groom":
-      return "H";
     case "bride":
-      return "N";
+      return "(max-width: 720px) 88vw, 38vw";
     case "gallery":
-      return "Ảnh đang được cập nhật";
+      return "(max-width: 640px) 46vw, (max-width: 1100px) 30vw, 24vw";
+    case "venue":
+      return "(max-width: 720px) 92vw, 50vw";
+    case "story":
     default:
-      return "♡";
+      return "(max-width: 720px) 92vw, 70vw";
   }
 }
 
-function defaultFallback(asset: PublicMediaAsset, imageAlt: string) {
-  const variant = fallbackVariant(asset.slot);
-  return (
-    <div className={`media-frame-fallback media-frame-fallback-${variant}`} role="img" aria-label={`${imageAlt} không thể tải`}>
-      <span aria-hidden={variant !== "gallery"}>{fallbackMark(asset.slot)}</span>
-    </div>
-  );
+function fallbackLabel(slot: MediaSlot, alt: string): string {
+  if (slot === "hero") return "Ảnh cover không thể tải";
+  if (slot === "groom") return "Ảnh chú rể không thể tải";
+  if (slot === "bride") return "Ảnh cô dâu không thể tải";
+  if (slot === "venue") return "Ảnh địa điểm không thể tải";
+  if (slot === "story") return "Ảnh chuyện tình không thể tải";
+  return alt ? `${alt} không thể tải` : "Ảnh gallery không thể tải";
 }
 
-export function MediaFrame({ asset, className, imageClassName, alt, loading, fallback, children }: MediaFrameProps) {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const frameClassName = ["media-frame", className].filter(Boolean).join(" ");
-  const imageClass = ["media-frame-image", imageClassName].filter(Boolean).join(" ");
-  const imageAlt = alt ?? asset.alt;
-  const loadError = failedSrc === asset.src;
+function fallbackContent(slot: MediaSlot): string {
+  if (slot === "groom") return "H";
+  if (slot === "bride") return "N";
+  if (slot === "venue") return "⌖";
+  if (slot === "story") return "♡";
+  if (slot === "gallery") return "✦";
+  return "H ♥ N";
+}
 
-  return (
-    <div className={frameClassName} style={{ overflow: "hidden" }}>
-      {loadError ? fallback ?? defaultFallback(asset, imageAlt || "Ảnh") : <Image
-          className={imageClass}
-          src={asset.src}
-          alt={imageAlt}
-          fill
-          unoptimized
-          sizes="100vw"
-          loading={loading}
-          onError={() => setFailedSrc(asset.src)}
-          style={{
-            objectFit: "cover",
-            ...mediaFrameStyle(asset),
-          }}
-        />}
-      {children}
-    </div>
-  );
+export function MediaFrame({ asset, className = "", imageClassName, alt, loading = "lazy", sizes }: MediaFrameProps) {
+  const [failed, setFailed] = useState(false);
+  const resolved = alt ?? asset.alt;
+
+  if (failed) {
+    return <div
+      className={`${className} media-frame-fallback media-frame-fallback-${asset.slot}`.trim()}
+      role="img"
+      aria-label={fallbackLabel(asset.slot, resolved)}
+    >
+      <span aria-hidden="true">{fallbackContent(asset.slot)}</span>
+    </div>;
+  }
+
+  return <div className={className}>
+    <Image
+      src={asset.src}
+      fill
+      sizes={sizes ?? mediaFrameSizes(asset.slot)}
+      className={imageClassName}
+      alt={resolved}
+      style={mediaFrameStyle(asset)}
+      loading={loading}
+      onError={() => setFailed(true)}
+    />
+  </div>;
 }

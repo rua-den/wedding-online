@@ -12,20 +12,25 @@ permissions:
 
 concurrency:
   group: auto-deploy-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   trigger-deploy:
-    name: Trigger production deployment
+    name: Backup and trigger production deployment
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
+    environment: production
+    env:
+      VPS_PORT: ${{ vars.VPS_PORT || '22' }}
+      VPS_APP_ROOT: ${{ vars.VPS_APP_ROOT }}
 
     steps:
-      - name: Dispatch tested main revision
+      - name: Verify tested main revision
+        id: revision
         env:
           GH_TOKEN: ${{ github.token }}
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -34,8 +39,103 @@ jobs:
           CURRENT_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
           if [ "$CURRENT_SHA" != "$TESTED_SHA" ]; then
             echo "main advanced from tested $TESTED_SHA to $CURRENT_SHA; the newer push CI will own production deployment."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+
+      - name: Configure production SSH
+        if: steps.revision.outputs.deploy == 'true'
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$VPS_HOST" || { echo "Missing production secret VPS_HOST"; exit 1; }
+          test -n "$VPS_USER" || { echo "Missing production secret VPS_USER"; exit 1; }
+          test -n "$VPS_SSH_PRIVATE_KEY" || { echo "Missing production secret VPS_SSH_PRIVATE_KEY"; exit 1; }
+          test -n "$VPS_KNOWN_HOSTS" || { echo "Missing production secret VPS_KNOWN_HOSTS"; exit 1; }
+          test -n "$VPS_APP_ROOT" || { echo "Missing production variable VPS_APP_ROOT"; exit 1; }
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_deploy"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Snapshot production before deploy
+        if: steps.revision.outputs.deploy == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_deploy" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" bash -s -- "$VPS_APP_ROOT" "$TESTED_SHA" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          APP_ROOT="$1"
+          REVISION="$2"
+          SHARED="$APP_ROOT/shared"
+          CURRENT="$APP_ROOT/current"
+          BACKUP_ROOT="$SHARED/data/backups/pre-deploy"
+          SNAPSHOT="$BACKUP_ROOT/$REVISION"
+
+          test -L "$CURRENT" || { echo "Missing current production release symlink"; exit 1; }
+          test -f "$SHARED/.env" || { echo "Missing production .env"; exit 1; }
+          test -d "$SHARED/uploads" || { echo "Missing shared uploads"; exit 1; }
+          mkdir -p "$BACKUP_ROOT"
+          chmod 700 "$SHARED" "$SHARED/data" "$SHARED/uploads" "$SHARED/data/backups" "$BACKUP_ROOT"
+
+          if [ -f "$SNAPSHOT/COMPLETE" ]; then
+            echo "Pre-deploy snapshot for $REVISION already completed."
+            exit 0
+          fi
+
+          rm -rf "$SNAPSHOT"
+          mkdir -m 700 "$SNAPSHOT"
+          cd "$CURRENT"
+          BACKUP_REVISION="$REVISION" node --input-type=commonjs - "$SHARED/.env" "$SNAPSHOT" <<'NODE'
+          const BetterSqlite3 = require("better-sqlite3");
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const [envPath, outputDirectory] = process.argv.slice(2);
+          process.loadEnvFile(envPath);
+          const databasePath = path.resolve(process.env.SQLITE_PATH || "data/wedding.sqlite");
+          if (!fs.existsSync(databasePath)) throw new Error(`Production SQLite database is missing: ${databasePath}`);
+          const backupPath = path.join(outputDirectory, "wedding.sqlite");
+          const database = new BetterSqlite3(databasePath);
+          database.pragma("foreign_keys = ON");
+          database.pragma("wal_checkpoint(TRUNCATE)");
+          database.backup(backupPath).then(() => {
+            database.close();
+            const backup = new BetterSqlite3(backupPath, { readonly: true, fileMustExist: true });
+            const integrity = backup.pragma("integrity_check", { simple: true });
+            backup.close();
+            if (integrity !== "ok") throw new Error(`SQLite backup integrity check failed: ${integrity}`);
+            fs.chmodSync(backupPath, 0o600);
+            fs.writeFileSync(path.join(outputDirectory, "metadata.json"), `${JSON.stringify({ createdAt: new Date().toISOString(), revision: process.env.BACKUP_REVISION, integrity: "ok" }, null, 2)}\n`, { mode: 0o600 });
+          }).catch((error) => { try { database.close(); } catch {} console.error(error); process.exit(1); });
+          NODE
+          tar -C "$SHARED" -czf "$SNAPSHOT/uploads.tgz" uploads
+          chmod 600 "$SNAPSHOT/uploads.tgz" "$SNAPSHOT/wedding.sqlite" "$SNAPSHOT/metadata.json"
+          printf '%s\n' "$REVISION" > "$SNAPSHOT/COMPLETE"
+          chmod 600 "$SNAPSHOT/COMPLETE"
+
+          ls -1dt "$BACKUP_ROOT"/* 2>/dev/null | tail -n +11 | while IFS= read -r old_snapshot; do
+            rm -rf "$old_snapshot"
+          done
+          echo "Verified pre-deploy snapshot created: $SNAPSHOT"
+          REMOTE
+
+      - name: Dispatch tested main revision
+        if: steps.revision.outputs.deploy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
           gh workflow run ci.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref main \

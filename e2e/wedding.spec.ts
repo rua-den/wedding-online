@@ -68,7 +68,10 @@ async function expectImageBytesLoad(page: Page, image: ReturnType<Page["locator"
   const imageUrl = new URL(src!, page.url());
   const pageUrl = new URL(page.url());
   expect(imageUrl.origin).toBe(pageUrl.origin);
-  expect(imageUrl.pathname).toMatch(/^\/uploads\//);
+  expect(imageUrl.pathname).toBe("/_next/image");
+  expect(imageUrl.searchParams.get("url")).toMatch(/^\/uploads\//);
+  expect(imageUrl.searchParams.get("w")).toMatch(/^\d+$/);
+  expect(await image.getAttribute("srcset")).toContain("/_next/image");
   const response = await page.request.get(imageUrl.toString());
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toMatch(/^image\//);
