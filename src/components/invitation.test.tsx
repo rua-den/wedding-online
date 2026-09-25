@@ -28,20 +28,22 @@ describe("Invitation", () => {
     expect(screen.getByRole("link", { name: /Xem chỉ đường/ })).toHaveAttribute("href", content.event.mapsUrl);
   });
 
-  it("renders an uploaded image on its matching love-story milestone", () => {
+  it("renders an uploaded milestone image through the responsive optimizer", () => {
     const content = defaultInvitationContent();
+    const originalSrc = "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png";
     content.story.milestones[0] = {
       ...content.story.milestones[0],
       title: "Ngày đầu gặp nhau",
-      imageSrc: "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png",
+      imageSrc: originalSrc,
     };
 
     render(<Invitation content={content} />);
 
     const image = screen.getByRole("img", { name: "Ảnh mốc Ngày đầu gặp nhau" });
-    expect(new URL(image.getAttribute("src")!, "http://localhost").pathname).toBe(
-      "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png",
-    );
+    const src = new URL(image.getAttribute("src")!, "http://localhost");
+    expect(src.pathname).toBe("/_next/image");
+    expect(src.searchParams.get("url")).toBe(originalSrc);
+    expect(image).toHaveAttribute("sizes", expect.stringContaining("92vw"));
   });
 
   it("applies per-copy and per-milestone font scales without replacing responsive parent typography", () => {
