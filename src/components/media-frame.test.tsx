@@ -69,6 +69,6 @@ describe("MediaFrame", () => {
 
     fireEvent.error(screen.getByRole("img", { name: "Chú rể" }));
 
-    expect(screen.getByRole("img", { name: "Chú rể không thể tải" })).toHaveTextContent("H");
+    expect(screen.getByRole("img", { name: "Ảnh chú rể không thể tải" })).toHaveTextContent("H");
   });
 });
