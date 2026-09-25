@@ -85,8 +85,22 @@ export function updateInvitationContent(input: unknown): InvitationContent {
   if (currentRow && storedVersion > CURRENT_INVITATION_CONTENT_SCHEMA_VERSION) throw new FutureInvitationContentVersionError(storedVersion);
   const parsed = invitationContentSchema.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Nội dung thiệp chưa hợp lệ.");
-  updateSiteSettings({ venue: parsed.data.event.venue, address: parsed.data.event.address, dateLabel: parsed.data.event.dateLabel, timeLabel: parsed.data.event.timeLabel, mapsUrl: parsed.data.event.mapsUrl });
-  const now = new Date().toISOString();
-  database().prepare(`INSERT INTO invitation_content (id, content_json, schema_version, updated_at) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content_json = excluded.content_json, schema_version = excluded.schema_version, updated_at = excluded.updated_at`).run(JSON.stringify(parsed.data), CURRENT_INVITATION_CONTENT_SCHEMA_VERSION, now);
+
+  const connection = database();
+  connection.exec("BEGIN IMMEDIATE");
+  try {
+    updateSiteSettings({ venue: parsed.data.event.venue, address: parsed.data.event.address, dateLabel: parsed.data.event.dateLabel, timeLabel: parsed.data.event.timeLabel, mapsUrl: parsed.data.event.mapsUrl });
+    const now = new Date().toISOString();
+    connection.prepare(`INSERT INTO invitation_content (id, content_json, schema_version, updated_at) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content_json = excluded.content_json, schema_version = excluded.schema_version, updated_at = excluded.updated_at`).run(JSON.stringify(parsed.data), CURRENT_INVITATION_CONTENT_SCHEMA_VERSION, now);
+    connection.exec("COMMIT");
+  } catch (error) {
+    try {
+      connection.exec("ROLLBACK");
+    } catch {
+      // Preserve the original content persistence error.
+    }
+    throw error;
+  }
+
   return getInvitationContent();
 }
