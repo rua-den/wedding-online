@@ -2,7 +2,12 @@
 
 import { useCallback, useState } from "react";
 
-import { formatImageMegabytes, MAX_CLIENT_IMAGE_BYTES, prepareImageForUpload } from "@/lib/client-image-optimize";
+import {
+  formatImageMegabytes,
+  imageUploadProfile,
+  prepareImageForUpload,
+  type ImageUploadPurpose,
+} from "@/lib/client-image-optimize";
 import type { MediaAsset, MediaSlot } from "@/lib/media-store";
 import { InvitationPreviewDialog } from "./invitation-preview-dialog";
 import { MediaCropEditor, type MediaCropValues } from "./media-crop-editor";
@@ -29,6 +34,11 @@ const singletonSlots: Array<{ slot: Exclude<MediaSlot, "gallery">; label: string
 ];
 
 function previewVariant(slot: MediaSlot): PreviewVariant {
+  if (slot === "groom" || slot === "bride") return "portrait";
+  return slot;
+}
+
+export function imageUploadPurposeForSlot(slot: MediaSlot): ImageUploadPurpose {
   if (slot === "groom" || slot === "bride") return "portrait";
   return slot;
 }
@@ -72,10 +82,12 @@ export function AdminMediaPanel({ initialAssets, request = fetch }: { initialAss
 
     let prepared: Awaited<ReturnType<typeof prepareImageForUpload>>;
     try {
-      if (file.size > MAX_CLIENT_IMAGE_BYTES) {
-        setStatus(`Ảnh ${formatImageMegabytes(file.size)} MB đang được tối ưu để giữ chất lượng trước khi tải lên…`);
+      const purpose = imageUploadPurposeForSlot(slot);
+      const profile = imageUploadProfile(purpose);
+      if (file.size > profile.targetBytes) {
+        setStatus(`Ảnh ${formatImageMegabytes(file.size)} MB đang được tối ưu cho web trước khi tải lên…`);
       }
-      prepared = await prepareImageForUpload(file);
+      prepared = await prepareImageForUpload(file, purpose);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Không thể tối ưu ảnh này.");
       setBusy(false);
