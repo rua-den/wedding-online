@@ -64,8 +64,8 @@ jobs:
           SNAPSHOT="$BACKUP_ROOT/$SNAPSHOT_ID"
 
           test -L "$CURRENT" || { echo "Missing current production release"; exit 1; }
-          test -x "$(command -v node)" || { echo "Node.js is missing"; exit 1; }
-          test -f "$CURRENT/scripts/production-backup.mjs" || { echo "Current release does not include production backup utility"; exit 1; }
+          command -v node >/dev/null || { echo "Node.js is missing"; exit 1; }
+          test -f "$SHARED/.env" || { echo "Missing production .env"; exit 1; }
           test -d "$SHARED/uploads" || { echo "Missing shared uploads"; exit 1; }
           mkdir -p "$BACKUP_ROOT" "$SNAPSHOT"
           chmod 700 "$SHARED/data/backups" "$BACKUP_ROOT" "$SNAPSHOT"
@@ -73,9 +73,30 @@ jobs:
           REVISION="unknown"
           if [ -f "$APP_ROOT/DEPLOYED_REVISION" ]; then REVISION="$(tr -d '\r\n' < "$APP_ROOT/DEPLOYED_REVISION")"; fi
           cd "$CURRENT"
-          BACKUP_REVISION="$REVISION" node scripts/production-backup.mjs "$SHARED/.env" "$SNAPSHOT"
+          BACKUP_REVISION="$REVISION" node --input-type=commonjs - "$SHARED/.env" "$SNAPSHOT" <<'NODE'
+          const BetterSqlite3 = require("better-sqlite3");
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const [envPath, outputDirectory] = process.argv.slice(2);
+          process.loadEnvFile(envPath);
+          const databasePath = path.resolve(process.env.SQLITE_PATH || "data/wedding.sqlite");
+          if (!fs.existsSync(databasePath)) throw new Error(`Production SQLite database is missing: ${databasePath}`);
+          const backupPath = path.join(outputDirectory, "wedding.sqlite");
+          const database = new BetterSqlite3(databasePath);
+          database.pragma("foreign_keys = ON");
+          database.pragma("wal_checkpoint(TRUNCATE)");
+          database.backup(backupPath).then(() => {
+            database.close();
+            const backup = new BetterSqlite3(backupPath, { readonly: true, fileMustExist: true });
+            const integrity = backup.pragma("integrity_check", { simple: true });
+            backup.close();
+            if (integrity !== "ok") throw new Error(`SQLite backup integrity check failed: ${integrity}`);
+            fs.chmodSync(backupPath, 0o600);
+            fs.writeFileSync(path.join(outputDirectory, "metadata.json"), `${JSON.stringify({ createdAt: new Date().toISOString(), revision: process.env.BACKUP_REVISION, integrity: "ok" }, null, 2)}\n`, { mode: 0o600 });
+          }).catch((error) => { try { database.close(); } catch {} console.error(error); process.exit(1); });
+          NODE
           tar -C "$SHARED" -czf "$SNAPSHOT/uploads.tgz" uploads
-          chmod 600 "$SNAPSHOT/uploads.tgz"
+          chmod 600 "$SNAPSHOT/uploads.tgz" "$SNAPSHOT/wedding.sqlite" "$SNAPSHOT/metadata.json"
           printf '%s\n' "$REVISION" > "$SNAPSHOT/COMPLETE"
           chmod 600 "$SNAPSHOT/COMPLETE"
 
