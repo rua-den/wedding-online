@@ -7,7 +7,16 @@ const onePixelPng = Buffer.from(
   "base64",
 );
 
-type MediaAssetSnapshot = { id: number; slot: string; src: string; active: boolean };
+type MediaAssetSnapshot = {
+  id: number;
+  slot: string;
+  src: string;
+  active: boolean;
+  sortOrder?: number;
+  focusX?: number;
+  focusY?: number;
+  zoom?: number;
+};
 
 async function readMedia(page: import("playwright/test").Page): Promise<MediaAssetSnapshot[]> {
   const response = await page.request.get("/api/admin/media");
@@ -63,5 +72,62 @@ test("admin media upload stays renderable on the public invitation", async ({ pa
       });
       expect(restored.ok()).toBeTruthy();
     }
+  }
+});
+
+test("existing media optimization replaces the file without changing media identity or crop", async ({ page }) => {
+  await login(page);
+
+  const createdResponse = await page.request.post("/api/admin/media", {
+    multipart: {
+      slot: "gallery",
+      alt: "e2e-optimize-gallery",
+      file: {
+        name: "e2e-optimize-gallery.png",
+        mimeType: "image/png",
+        buffer: onePixelPng,
+      },
+    },
+  });
+  expect(createdResponse.ok()).toBeTruthy();
+  const created = (await createdResponse.json() as { asset: MediaAssetSnapshot }).asset;
+
+  try {
+    const croppedResponse = await page.request.patch("/api/admin/media", {
+      data: { id: created.id, focusX: 23, focusY: 71, zoom: 1.4 },
+    });
+    expect(croppedResponse.ok()).toBeTruthy();
+    const before = (await croppedResponse.json() as { asset: MediaAssetSnapshot }).asset;
+
+    const sourceResponse = await page.request.get(`/api/admin/media/optimize?id=${created.id}`);
+    expect(sourceResponse.ok()).toBeTruthy();
+    expect(sourceResponse.headers()["content-type"]).toBe("image/png");
+
+    const replacementResponse = await page.request.post("/api/admin/media/optimize", {
+      multipart: {
+        id: String(created.id),
+        file: {
+          name: "e2e-optimized.webp",
+          mimeType: "image/webp",
+          buffer: Buffer.from("UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEALmk0mk0iIiIiIgBoSygABc6zbAAA", "base64"),
+        },
+      },
+    });
+    expect(replacementResponse.ok()).toBeTruthy();
+    const after = (await replacementResponse.json() as { asset: MediaAssetSnapshot }).asset;
+
+    expect(after.id).toBe(before.id);
+    expect(after.sortOrder).toBe(before.sortOrder);
+    expect(after.focusX).toBe(23);
+    expect(after.focusY).toBe(71);
+    expect(after.zoom).toBe(1.4);
+    expect(after.src).not.toBe(before.src);
+
+    const publicResponse = await page.request.get(after.src);
+    expect(publicResponse.ok()).toBeTruthy();
+    expect(publicResponse.headers()["content-type"]).toBe("image/webp");
+  } finally {
+    const deleted = await page.request.delete("/api/admin/media", { data: { id: created.id } });
+    expect(deleted.ok()).toBeTruthy();
   }
 });
