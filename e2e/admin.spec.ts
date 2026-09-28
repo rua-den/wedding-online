@@ -4,6 +4,7 @@ import { login } from "./auth";
 test("admin login gates the dashboard and creates a usable invitation", async ({ page }) => {
   await login(page);
   await page.getByLabel("Tên khách mời").fill("Cô Lan");
+  await page.getByLabel("Ngày mời").selectOption("oct11");
   await page.getByRole("button", { name: "Tạo link mời" }).click();
   await expect(page.getByText("Đã tạo link mời cho Cô Lan")).toBeVisible();
   await expect(page.locator(".admin-created-link input")).toHaveValue(/\/moi\//);
@@ -19,6 +20,7 @@ test("admin dashboard remains usable on a mobile viewport", async ({ page }) => 
 test("admin can deactivate an invitation and filter/export RSVP rows", async ({ page }) => {
   await login(page);
   await page.getByLabel("Tên khách mời").fill("Khách thử nghiệm");
+  await page.getByLabel("Ngày mời").selectOption("oct31");
   await page.getByRole("button", { name: "Tạo link mời" }).click();
   await expect(page.getByText("Đã tạo link mời cho Khách thử nghiệm")).toBeVisible();
 
