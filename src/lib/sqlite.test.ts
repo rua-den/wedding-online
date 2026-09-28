@@ -27,12 +27,35 @@ describe("SQLite database", () => {
     const tables = getDatabase()
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
       .all() as Array<{ name: string }>;
+    const invitationColumns = getDatabase().prepare("PRAGMA table_info(invitations)").all() as Array<{ name: string }>;
 
     expect(tables.map((table) => table.name)).toEqual(
       expect.arrayContaining(["invitations", "rsvps"]),
     );
+    expect(invitationColumns.map((column) => column.name)).toContain("event_scope");
     expect(getDatabase().pragma("foreign_keys", { simple: true })).toBe(1);
     expect(getDatabase().pragma("journal_mode", { simple: true })).toBe("wal");
+  });
+
+  it("migrates existing invitations to the legacy event scope without changing rows", () => {
+    useTemporaryDatabase();
+    const connection = getDatabase();
+    connection.exec(`
+      CREATE TABLE invitations (
+        id INTEGER PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        max_guests INTEGER NOT NULL CHECK (max_guests >= 1),
+        active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    connection.prepare("INSERT INTO invitations (code, name, max_guests, active, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)").run("old", "Khách cũ", 2, "before", "before");
+
+    initializeDatabase();
+
+    expect(connection.prepare("SELECT code, event_scope FROM invitations WHERE code = ?").get("old")).toEqual({ code: "old", event_scope: "legacy" });
   });
 
   it("enforces invitation and RSVP constraints", () => {
@@ -63,9 +86,9 @@ describe("SQLite database", () => {
 
     expect(
       getDatabase()
-        .prepare("SELECT code, max_guests FROM invitations WHERE code = ?")
+        .prepare("SELECT code, max_guests, event_scope FROM invitations WHERE code = ?")
         .get("demo"),
-    ).toEqual({ code: "demo", max_guests: 2 });
+    ).toEqual({ code: "demo", max_guests: 2, event_scope: "legacy" });
   });
 
   it("does not add the demo invitation outside development", () => {

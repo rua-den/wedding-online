@@ -34,27 +34,42 @@ describe("/api/admin/invitations", () => {
     expect(createResponse.headers.get("cache-control")).toBe("no-store");
   });
 
-  it("creates, lists, edits and deactivates an invitation", async () => {
-    const created = await POST(request("/api/admin/invitations", {
+  it("requires an explicit event scope for new invitations", async () => {
+    const response = await POST(request("/api/admin/invitations", {
       method: "POST", body: JSON.stringify({ name: "Cô Lan", maxGuests: 2 }),
     }));
+    expect(response.status).toBe(400);
+  });
+
+  it("creates, lists, edits and deactivates an invitation with its event scope", async () => {
+    const created = await POST(request("/api/admin/invitations", {
+      method: "POST", body: JSON.stringify({ name: "Cô Lan", maxGuests: 2, eventScope: "oct11" }),
+    }));
     expect(created.status).toBe(201);
-    const createdBody = await created.json() as { invitation: { code: string }; invitationUrl: string };
+    const createdBody = await created.json() as { invitation: { code: string; eventScope: string }; invitationUrl: string };
     expect(createdBody.invitationUrl).toContain(`/moi/${createdBody.invitation.code}`);
+    expect(createdBody.invitation.eventScope).toBe("oct11");
 
     const changed = await PATCH(request("/api/admin/invitations", {
-      method: "PATCH", body: JSON.stringify({ code: createdBody.invitation.code, name: "Cô Lan & Chú Minh", active: false }),
+      method: "PATCH", body: JSON.stringify({ code: createdBody.invitation.code, name: "Cô Lan & Chú Minh", eventScope: "both", active: false }),
     }));
     expect(changed.status).toBe(200);
-    await expect(changed.json()).resolves.toMatchObject({ invitation: { name: "Cô Lan & Chú Minh", active: false } });
+    await expect(changed.json()).resolves.toMatchObject({ invitation: { name: "Cô Lan & Chú Minh", eventScope: "both", active: false } });
 
     const listed = await GET(request("/api/admin/invitations?q=chú"));
-    await expect(listed.json()).resolves.toMatchObject({ invitations: [{ code: createdBody.invitation.code }], summary: { invitationCount: 1 } });
+    await expect(listed.json()).resolves.toMatchObject({ invitations: [{ code: createdBody.invitation.code, eventScope: "both" }], summary: { invitationCount: 1 } });
+  });
+
+  it("rejects legacy as a new admin assignment", async () => {
+    const response = await POST(request("/api/admin/invitations", {
+      method: "POST", body: JSON.stringify({ name: "Khách", maxGuests: 1, eventScope: "legacy" }),
+    }));
+    expect(response.status).toBe(400);
   });
 
   it("deletes an invitation and returns the refreshed summary", async () => {
     const created = await POST(request("/api/admin/invitations", {
-      method: "POST", body: JSON.stringify({ name: "Khách test", maxGuests: 1 }),
+      method: "POST", body: JSON.stringify({ name: "Khách test", maxGuests: 1, eventScope: "oct31" }),
     }));
     const createdBody = await created.json() as { invitation: { code: string } };
 
