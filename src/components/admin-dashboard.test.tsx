@@ -17,8 +17,8 @@ const summary: AdminSummary = {
 };
 
 const invitations: AdminInvitation[] = [
-  { code: "lan-abc", name: "Cô Lan", maxGuests: 2, active: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", attendance: "attending", guestCount: 2, rsvpUpdatedAt: "2026-01-02T00:00:00.000Z" },
-  { code: "minh-xyz", name: "Anh Minh", maxGuests: 1, active: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", attendance: null, guestCount: null, rsvpUpdatedAt: null },
+  { code: "lan-abc", name: "Cô Lan", maxGuests: 2, active: true, eventScope: "oct11", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", attendance: "attending", guestCount: 2, rsvpUpdatedAt: "2026-01-02T00:00:00.000Z" },
+  { code: "minh-xyz", name: "Anh Minh", maxGuests: 1, active: true, eventScope: "legacy", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", attendance: null, guestCount: null, rsvpUpdatedAt: null },
 ];
 
 const rsvps: AdminRsvp[] = [
@@ -43,14 +43,25 @@ describe("AdminDashboard", () => {
     expect(screen.getByRole("heading", { name: "Quản lý khách mời" })).toBeInTheDocument();
   });
 
-  it("creates an invitation then renders its copyable link", async () => {
+  it("requires an event selection when creating an invitation and sends it to the API", async () => {
     const user = userEvent.setup();
-    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ invitation: { ...invitations[0], name: "Cô Lan mới", code: "co-lan-moi" }, invitationUrl: "http://localhost:3000/moi/co-lan-moi", summary }), { status: 201 }));
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ invitation: { ...invitations[0], name: "Cô Lan mới", code: "co-lan-moi", eventScope: "oct31" }, invitationUrl: "http://localhost:3000/moi/co-lan-moi", summary }), { status: 201 }));
     render(<AdminDashboard {...fixture({ fetcher })} />);
     await user.type(screen.getByLabelText("Tên khách mời"), "Cô Lan mới");
+    await user.selectOptions(screen.getByLabelText("Ngày mời"), "oct31");
     await user.click(screen.getByRole("button", { name: "Tạo link mời" }));
     expect(await screen.findByText("Đã tạo link mời cho Cô Lan mới")).toBeInTheDocument();
     expect(screen.getByDisplayValue("http://localhost:3000/moi/co-lan-moi")).toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledWith("/api/admin/invitations", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ name: "Cô Lan mới", maxGuests: 2, eventScope: "oct31" }),
+    }));
+  });
+
+  it("shows the invitation event assignment including legacy rows", () => {
+    render(<AdminDashboard {...fixture()} />);
+    expect(screen.getByText("11/10")).toBeInTheDocument();
+    expect(screen.getByText("Chưa phân loại")).toBeInTheDocument();
   });
 
   it("filters invitation links by lifecycle and RSVP state", async () => {
@@ -97,18 +108,23 @@ describe("AdminDashboard", () => {
     expect(screen.queryByRole("link", { name: "http://localhost:3000/moi/lan-abc" })).not.toBeInTheDocument();
   });
 
-  it("edits an invitation name and guest limit", async () => {
+  it("edits an invitation name, guest limit and event scope", async () => {
     const user = userEvent.setup();
-    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ invitation: { ...invitations[0], name: "Cô Lan thân mến", maxGuests: 3 }, summary }), { status: 200 }));
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ invitation: { ...invitations[0], name: "Cô Lan thân mến", maxGuests: 3, eventScope: "both" }, summary }), { status: 200 }));
     render(<AdminDashboard {...fixture({ fetcher })} />);
     await user.click(screen.getAllByRole("button", { name: "Sửa" })[0]);
     const nameInput = screen.getByLabelText("Tên khách mời lan-abc");
     await user.clear(nameInput);
     await user.type(nameInput, "Cô Lan thân mến");
     await user.selectOptions(screen.getByLabelText("Số khách tối đa lan-abc"), "3");
+    await user.selectOptions(screen.getByLabelText("Ngày mời lan-abc"), "both");
     await user.click(screen.getByRole("button", { name: "Lưu" }));
     expect(await screen.findByText("Cô Lan thân mến")).toBeInTheDocument();
-    expect(fetcher).toHaveBeenCalledWith("/api/admin/invitations", expect.objectContaining({ method: "PATCH" }));
+    expect(screen.getByText("11/10 + 31/10")).toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledWith("/api/admin/invitations", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ code: "lan-abc", name: "Cô Lan thân mến", maxGuests: 3, eventScope: "both" }),
+    }));
   });
 
   it("shows and copies the personalized URL for each invitation", async () => {
@@ -129,6 +145,7 @@ describe("AdminDashboard", () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: "Không thể tạo thiệp mời." }), { status: 500 }));
     render(<AdminDashboard {...fixture({ fetcher })} />);
     await user.type(screen.getByLabelText("Tên khách mời"), "Lỗi");
+    await user.selectOptions(screen.getByLabelText("Ngày mời"), "oct11");
     await user.click(screen.getByRole("button", { name: "Tạo link mời" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Không thể tạo thiệp mời."));
     expect(document.querySelector(".admin-table-wrap")).toBeInTheDocument();
