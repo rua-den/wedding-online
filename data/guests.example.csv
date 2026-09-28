@@ -1,3 +1,4 @@
-name,maxGuests
-Nguyễn Văn An,2
-Trần Thị Bình,1
+name,maxGuests,eventScope
+Nguyễn Văn An,2,oct11
+Trần Thị Bình,1,oct31
+Gia đình Minh,4,both

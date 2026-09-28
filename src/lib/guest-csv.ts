@@ -1,6 +1,9 @@
+import type { AssignableInvitationEventScope } from "./invitation-event-scope";
+
 export type GuestCsvRow = {
   name: string;
   maxGuests: number;
+  eventScope: AssignableInvitationEventScope;
 };
 
 function parseRows(text: string): string[][] {
@@ -46,8 +49,8 @@ function parseRows(text: string): string[][] {
 export function parseGuestCsv(text: string): GuestCsvRow[] {
   const rows = parseRows(text.replace(/^\uFEFF/, ""));
   const header = rows[0]?.map((value) => value.trim());
-  if (!header || header[0] !== "name" || header[1] !== "maxGuests") {
-    throw new Error("CSV phải có header: name,maxGuests.");
+  if (!header || header[0] !== "name" || header[1] !== "maxGuests" || header[2] !== "eventScope") {
+    throw new Error("CSV phải có header: name,maxGuests,eventScope.");
   }
 
   const guests: GuestCsvRow[] = [];
@@ -56,12 +59,16 @@ export function parseGuestCsv(text: string): GuestCsvRow[] {
     if (values.every((value) => value.trim() === "")) return;
     const name = values[0]?.trim() ?? "";
     const maxGuests = Number(values[1]?.trim());
+    const eventScope = values[2]?.trim();
 
     if (!name) throw new Error(`Dòng ${rowNumber}: Tên khách mời không được để trống.`);
     if (!Number.isInteger(maxGuests) || maxGuests <= 0) {
       throw new Error(`Dòng ${rowNumber}: Số khách phải là số nguyên dương.`);
     }
-    guests.push({ name, maxGuests });
+    if (eventScope !== "oct11" && eventScope !== "oct31" && eventScope !== "both") {
+      throw new Error(`Dòng ${rowNumber}: Ngày mời phải là oct11, oct31 hoặc both.`);
+    }
+    guests.push({ name, maxGuests, eventScope });
   });
   return guests;
 }
@@ -79,4 +86,3 @@ export function toSafeCsv(rows: Array<Record<string, unknown>>, columns?: string
   for (const row of rows) output.push(headers.map((header) => safeCell(row[header])).join(","));
   return `${output.join("\r\n")}\r\n`;
 }
-
