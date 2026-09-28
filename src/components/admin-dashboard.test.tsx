@@ -60,7 +60,7 @@ describe("AdminDashboard", () => {
 
   it("shows the invitation event assignment including legacy rows", () => {
     render(<AdminDashboard {...fixture()} />);
-    expect(screen.getByText("11/10")).toBeInTheDocument();
+    expect(screen.getAllByText("11/10")).toHaveLength(2);
     expect(screen.getByText("Chưa phân loại")).toBeInTheDocument();
   });
 
