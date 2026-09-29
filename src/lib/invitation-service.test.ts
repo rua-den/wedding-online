@@ -34,6 +34,11 @@ describe("getInvitation", () => {
     });
   });
 
+  it("fails closed instead of treating an unknown scope as legacy", async () => {
+    const corruptInvitation = { code: "bad", name: "Khách lỗi", maxGuests: 1, active: true, eventScope: "oct13" as never };
+    await expect(getInvitation("bad", createStore({ findInvitation: async () => corruptInvitation }))).rejects.toThrow("Phạm vi ngày mời");
+  });
+
   it("hides inactive invitations", async () => {
     await expect(getInvitation("secure-code", createStore({ findInvitation: async () => ({ ...invitation, active: false }) }))).resolves.toEqual({
       ok: false,

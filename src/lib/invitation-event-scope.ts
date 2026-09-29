@@ -4,7 +4,9 @@ export type AssignableInvitationEventScope = typeof ASSIGNABLE_INVITATION_EVENT_
 export type InvitationEventScope = AssignableInvitationEventScope | "legacy";
 
 export function normalizeInvitationEventScope(value: unknown): InvitationEventScope {
-  return value === "oct11" || value === "oct31" || value === "both" ? value : "legacy";
+  if (value === undefined || value === null) return "legacy";
+  if (value === "legacy" || value === "oct11" || value === "oct31" || value === "both") return value;
+  throw new Error("Phạm vi ngày mời trong dữ liệu không hợp lệ.");
 }
 
 export function invitationEventScopeLabel(scope: InvitationEventScope | undefined): string {

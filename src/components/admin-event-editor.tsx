@@ -12,10 +12,15 @@ function emptyDraft(scope: DatedInvitationEventScope, template: InvitationConten
   return {
     ...template,
     scope,
+    eyebrow: "",
+    title: "",
     dateTime: "",
-    rsvpDeadline: "",
     dateLabel: scope === "oct11" ? "11/10/2026" : "31/10/2026",
     timeLabel: "",
+    rsvpDeadline: "",
+    venue: "",
+    address: "",
+    mapsUrl: "",
   };
 }
 
@@ -93,6 +98,7 @@ export function AdminEventEditor({
         <p className="eyebrow">Ngày cưới</p>
         <h1>Cấu hình sự kiện</h1>
         <p>11/10 và 31/10 được lưu độc lập. Khách chỉ thấy ngày được gán trong danh sách khách mời.</p>
+        <p>Ngày và giờ hiển thị trên thiệp được tự động lấy từ ngày giờ tổ chức để tránh nhập lệch thông tin.</p>
       </div>
     </header>
 
@@ -110,8 +116,6 @@ export function AdminEventEditor({
           {field(scope, "Tiêu đề", "title", { maxLength: 220 })}
           {field(scope, "Ngày giờ ISO", "dateTime", { maxLength: 80 })}
           {field(scope, "Hạn RSVP ISO", "rsvpDeadline", { maxLength: 80 })}
-          {field(scope, "Nhãn ngày", "dateLabel", { maxLength: 160 })}
-          {field(scope, "Giờ hiển thị", "timeLabel", { maxLength: 80 })}
           {field(scope, "Tên địa điểm", "venue", { maxLength: 160 })}
           {field(scope, "Địa chỉ", "address", { maxLength: 240 })}
           {field(scope, "Google Maps URL", "mapsUrl", { type: "url", maxLength: 2048 })}
