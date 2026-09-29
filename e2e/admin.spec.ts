@@ -35,3 +35,71 @@ test("admin can deactivate an invitation and filter/export RSVP rows", async ({ 
   await page.getByRole("link", { name: "Xuất CSV" }).click();
   await expect((await download).suggestedFilename()).toBe("rsvp.csv");
 });
+
+test("both-date invitation renders and records one RSVP per configured event", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/events");
+
+  async function configureEvent(label: "11/10/2026" | "31/10/2026", values: {
+    title: string;
+    dateTime: string;
+    deadline: string;
+    venue: string;
+    address: string;
+    mapsUrl: string;
+  }) {
+    const panel = page.locator("section.admin-panel").filter({ has: page.getByRole("heading", { name: label }) });
+    await panel.getByLabel("Eyebrow").fill("Trân trọng kính mời");
+    await panel.getByLabel("Tiêu đề").fill(values.title);
+    await panel.getByLabel("Ngày giờ ISO").fill(values.dateTime);
+    await panel.getByLabel("Hạn RSVP ISO").fill(values.deadline);
+    await panel.getByLabel("Tên địa điểm").fill(values.venue);
+    await panel.getByLabel("Địa chỉ").fill(values.address);
+    await panel.getByLabel("Google Maps URL").fill(values.mapsUrl);
+    await panel.getByRole("button", { name: `Lưu ${label}` }).click();
+    await expect(page.getByRole("status")).toContainText(`Đã lưu sự kiện ${label.startsWith("11") ? "11/10" : "31/10"}.`);
+  }
+
+  await configureEvent("11/10/2026", {
+    title: "Lễ ngày 11",
+    dateTime: "2026-10-11T11:00:00+07:00",
+    deadline: "2026-10-10T23:00:00+07:00",
+    venue: "Sảnh ngày 11",
+    address: "Địa chỉ ngày 11",
+    mapsUrl: "https://maps.google.com/?q=sanh+11",
+  });
+  await configureEvent("31/10/2026", {
+    title: "Lễ ngày 31",
+    dateTime: "2026-10-31T18:30:00+07:00",
+    deadline: "2026-10-30T23:00:00+07:00",
+    venue: "Sảnh ngày 31",
+    address: "Địa chỉ ngày 31",
+    mapsUrl: "https://maps.google.com/?q=sanh+31",
+  });
+
+  await page.goto("/admin");
+  await page.getByLabel("Tên khách mời").fill("Khách E2E hai ngày");
+  await page.getByLabel("Ngày mời").selectOption("both");
+  await page.getByRole("button", { name: "Tạo link mời" }).click();
+  const invitationUrl = await page.locator(".admin-created-link input").inputValue();
+  expect(invitationUrl).toContain("/moi/");
+
+  await page.goto(invitationUrl);
+  await expect(page.getByRole("heading", { name: "Khách E2E hai ngày" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lễ ngày 11" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lễ ngày 31" })).toBeVisible();
+  await expect(page.getByText("11/10/2026", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("31/10/2026", { exact: true }).first()).toBeVisible();
+
+  for (const scope of ["oct11", "oct31"] as const) {
+    const form = page.locator(`form[data-event-scope="${scope}"]`);
+    await form.getByLabel("Sẽ tham dự").check();
+    await form.getByLabel("Số người tham dự").selectOption("1");
+    await form.getByRole("button", { name: "Gửi xác nhận" }).click();
+    await expect(form.getByText("Cảm ơn bạn đã xác nhận tham dự!")).toBeVisible();
+  }
+
+  await page.goto("/admin");
+  await expect(page.getByText("Khách E2E hai ngày · 11/10")).toBeVisible();
+  await expect(page.getByText("Khách E2E hai ngày · 31/10")).toBeVisible();
+});
