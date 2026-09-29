@@ -86,8 +86,12 @@ test("both-date invitation renders and records one RSVP per configured event", a
 
   await page.goto(invitationUrl);
   await expect(page.getByRole("heading", { name: "Khách E2E hai ngày" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Lễ ngày 11" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Lễ ngày 31" })).toBeVisible();
+  const eventCards = page.locator(".event-card");
+  const rsvpCards = page.locator(".rsvp-card");
+  await expect(eventCards.getByRole("heading", { name: "Lễ ngày 11" })).toBeVisible();
+  await expect(eventCards.getByRole("heading", { name: "Lễ ngày 31" })).toBeVisible();
+  await expect(rsvpCards.getByRole("heading", { name: "Lễ ngày 11" })).toBeVisible();
+  await expect(rsvpCards.getByRole("heading", { name: "Lễ ngày 31" })).toBeVisible();
   await expect(page.getByText("11/10/2026", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("31/10/2026", { exact: true }).first()).toBeVisible();
 
