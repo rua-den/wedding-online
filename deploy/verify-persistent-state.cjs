@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- standalone CommonJS deploy utility */
 const fs = require("node:fs");
 const path = require("node:path");
 const BetterSqlite3 = require("better-sqlite3");
