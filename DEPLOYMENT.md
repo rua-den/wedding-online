@@ -26,6 +26,8 @@ Dữ liệu runtime nằm ngoài release:
 
 Mỗi release symlink `data`, `public/uploads` và `.env` về `shared/`. Vì vậy rollback code không rollback database, ảnh hay nhạc.
 
+Trước khi thay process production, release mới chạy `verify-persistent-state.cjs` để xác nhận SQLite và uploads thật sự resolve về `shared/`, chạy `PRAGMA integrity_check`, kiểm tra file nhạc mà `music_settings` đang tham chiếu, chụp snapshot số row của các bảng runtime quan trọng và manifest tên file uploads, đồng thời tạo một SQLite backup `pre-deploy-*.sqlite`. Sau khi release mới qua HTTP health check, cùng verifier chạy lại; nếu DB path/uploads path đổi, row bị giảm, file upload cũ biến mất hoặc file nhạc được tham chiếu không còn tồn tại thì deployment fail và code rollback về release trước. Backup trước deploy được giữ lại khi failure xảy ra.
+
 `better-sqlite3` có native binary nên release production được build trên `ubuntu-24.04-arm`, cùng kiến trúc ARM64 với Oracle VPS. CI x64 thông thường vẫn chạy unit/lint/build/E2E trước đó.
 
 ## Chuẩn bị Node.js, PM2 và Nginx
@@ -67,7 +69,7 @@ PORT=3000
 HOSTNAME=127.0.0.1
 ```
 
-Các đường dẫn relative vẫn dùng được trong release-based CD vì `data` và `public/uploads` là symlink về `shared/`.
+Các đường dẫn relative vẫn dùng được trong release-based CD vì `data` và `public/uploads` là symlink về `shared/`. Persistent-state preflight cũng fail-closed nếu các path này resolve ra ngoài `shared/data` hoặc `shared/uploads`.
 
 ## Rate limit production
 
@@ -143,7 +145,7 @@ Thêm repository/environment variables:
 - `VPS_APP_ROOT` — đường dẫn tuyệt đối tới thư mục repo/app hiện tại trên VPS, ví dụ `/home/ubuntu/wedding-online`.
 - `VPS_PORT` — SSH port, mặc định `22` nếu bỏ trống.
 - `VPS_APP_PORT` — app port, mặc định `3000` nếu bỏ trống.
-- `CD_ENABLED` — để `false` hoặc chưa tạo trong lúc setup.
+- `CD_ENABLED` — để `false` hoặc chưa tạo trong lúc setup. Workflow `Auto deploy production` chỉ dispatch deploy tự động khi biến này đúng bằng `true`.
 
 Có thể thêm required reviewer cho environment `production` nếu muốn mỗi deploy phải được approve thủ công.
 
@@ -151,7 +153,7 @@ Có thể thêm required reviewer cho environment `production` nếu muốn mỗ
 
 Sau khi bootstrap shared storage và cấu hình secrets/variables, vào **Actions → CI → Run workflow** rồi bật input **deploy_to_vps**.
 
-Manual deploy này vẫn chạy toàn bộ:
+Manual deploy này vẫn chạy toàn bộ dù `CD_ENABLED` đang tắt, vì đây là hành động deploy chủ động:
 
 1. unit tests;
 2. lint;
@@ -160,22 +162,28 @@ Manual deploy này vẫn chạy toàn bộ:
 5. ARM64 standalone build;
 6. chạy standalone artifact thật trên ARM64 runner và HTTP smoke test;
 7. SCP artifact lên VPS;
-8. switch `current` atomically;
-9. `pm2 startOrReload`;
-10. health check `http://127.0.0.1:<VPS_APP_PORT>/`;
-11. rollback tự động nếu health check fail.
+8. dựng release với symlink về `shared/data`, `shared/uploads`, `shared/.env`;
+9. persistent-state preflight: xác minh realpath, `PRAGMA integrity_check`, music reference, row counts và upload manifest;
+10. tạo SQLite backup `pre-deploy-*.sqlite` trong `shared/data/backups`;
+11. start release mới bằng PM2;
+12. health check `http://127.0.0.1:<VPS_APP_PORT>/`;
+13. persistent-state verify lại sau activation;
+14. chỉ khi tất cả đều pass mới switch `current` và ghi `DEPLOYED_REVISION`;
+15. rollback code tự động nếu activation, health check hoặc state verification fail.
 
-Nếu lần deploy đầu xanh, đặt variable:
+Nếu lần deploy đầu xanh và muốn tự động deploy mỗi push `main`, đặt variable:
 
 ```text
 CD_ENABLED=true
 ```
 
-Từ đó mỗi push `main` chỉ deploy sau khi CI/E2E xanh.
+Từ đó mỗi push `main` chỉ được workflow auto-deploy dispatch sau khi CI/E2E xanh. Nếu `CD_ENABLED` không phải `true`, một push/merge `main` không được tự dispatch production deployment.
 
 ## Cơ chế rollback
 
-Workflow giữ tối đa 5 release gần nhất. Nếu release mới không trả HTTP 2xx trong health-check window, workflow đổi `current` về release trước và reload PM2.
+Workflow giữ tối đa 5 release gần nhất. Nếu release mới không trả HTTP 2xx hoặc persistent-state verification fail, workflow đổi `current` về release trước và reload PM2.
+
+Rollback code **không tự restore shared data**. Nếu verifier phát hiện state giảm/mất, pre-deploy SQLite backup vẫn được giữ để điều tra/restore có chủ đích; tự động restore DB có thể ghi đè một thay đổi hợp lệ xảy ra đồng thời và không thể tự khôi phục file uploads đã mất.
 
 Lần cutover đầu tiên, nếu chưa có `current` release nhưng repo cũ vẫn có `ecosystem.config.cjs`, workflow dùng config legacy đó làm fallback rollback.
 
@@ -193,7 +201,7 @@ curl -I http://127.0.0.1:3000/
 
 ## Backup định kỳ
 
-CD giữ persistent storage nhưng **không thay thế backup**. Tiếp tục chạy backup SQLite định kỳ bằng cùng user PM2 và copy backup + uploads sang storage khác.
+Mỗi production deployment tạo thêm một SQLite backup ngay trước activation, nhưng **pre-deploy backup và persistent storage không thay thế backup định kỳ/offsite**. Tiếp tục chạy backup SQLite định kỳ bằng cùng user PM2 và copy backup + uploads sang storage khác.
 
 Trong deployment thủ công cũ có thể dùng:
 
