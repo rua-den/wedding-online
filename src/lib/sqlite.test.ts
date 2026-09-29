@@ -87,6 +87,34 @@ describe("SQLite database", () => {
     ).toThrow();
   });
 
+  it("rejects unknown event scopes after both fresh setup and legacy migration", () => {
+    useTemporaryDatabase();
+    const connection = getDatabase();
+    connection.exec(`
+      CREATE TABLE invitations (
+        id INTEGER PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        max_guests INTEGER NOT NULL CHECK (max_guests >= 1),
+        active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    initializeDatabase();
+
+    expect(() => connection.prepare(`
+      INSERT INTO invitations (code, name, max_guests, active, event_scope, created_at, updated_at)
+      VALUES (?, ?, 1, 1, ?, ?, ?)
+    `).run("bad", "Bad scope", "oct13", "now", "now")).toThrow("invalid invitation event_scope");
+
+    connection.prepare(`
+      INSERT INTO invitations (code, name, max_guests, active, event_scope, created_at, updated_at)
+      VALUES (?, ?, 1, 1, 'oct11', ?, ?)
+    `).run("valid", "Valid scope", "now", "now");
+    expect(() => connection.prepare("UPDATE invitations SET event_scope = ? WHERE code = ?").run("oct99", "valid")).toThrow("invalid invitation event_scope");
+  });
+
   it("adds the local demo invitation only in development", () => {
     useTemporaryDatabase();
     vi.stubEnv("NODE_ENV", "development");
