@@ -1,4 +1,5 @@
 import { createInvitationCode } from "./invite-code";
+import { normalizeInvitationEventScope, type AssignableInvitationEventScope } from "./invitation-event-scope";
 import type { Invitation, InvitationStore, StoredRsvp } from "./invitation-service";
 import type { Attendance } from "./rsvp";
 import { getDatabase, initializeDatabase } from "./sqlite";
@@ -46,6 +47,7 @@ type InvitationRow = {
   name: string;
   max_guests: number;
   active: number;
+  event_scope?: string | null;
   created_at: string;
   updated_at: string;
   attendance?: Attendance | null;
@@ -76,6 +78,7 @@ function mapInvitation(row: InvitationRow): AdminInvitation {
     name: row.name,
     maxGuests: row.max_guests,
     active: row.active === 1,
+    eventScope: normalizeInvitationEventScope(row.event_scope),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     attendance: row.attendance ?? null,
@@ -102,7 +105,7 @@ export const sqliteInvitationStore: InvitationStore = {
   async findInvitation(code) {
     const row = database()
       .prepare(`
-        SELECT code, name, max_guests, active, created_at, updated_at
+        SELECT code, name, max_guests, active, event_scope, created_at, updated_at
         FROM invitations
         WHERE code = ? AND active = 1
       `)
@@ -144,7 +147,7 @@ export function listAdminInvitations(query = ""): AdminInvitation[] {
   const search = `%${query.trim()}%`;
   const rows = database()
     .prepare(`
-      SELECT i.code, i.name, i.max_guests, i.active, i.created_at, i.updated_at,
+      SELECT i.code, i.name, i.max_guests, i.active, i.event_scope, i.created_at, i.updated_at,
              r.attendance, r.guest_count, r.updated_at AS rsvp_updated_at
       FROM invitations i
       LEFT JOIN rsvps r ON r.invitation_code = i.code
@@ -159,19 +162,21 @@ export function createAdminInvitation(input: {
   name: string;
   maxGuests: number;
   code?: string;
+  eventScope?: AssignableInvitationEventScope;
 }): AdminInvitation {
   const connection = database();
   const now = new Date().toISOString();
+  const eventScope = input.eventScope ?? "legacy";
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = input.code?.trim() || createInvitationCode();
     try {
       connection
         .prepare(`
-          INSERT INTO invitations (code, name, max_guests, active, created_at, updated_at)
-          VALUES (?, ?, ?, 1, ?, ?)
+          INSERT INTO invitations (code, name, max_guests, active, event_scope, created_at, updated_at)
+          VALUES (?, ?, ?, 1, ?, ?, ?)
         `)
-        .run(code, input.name.trim(), input.maxGuests, now, now);
+        .run(code, input.name.trim(), input.maxGuests, eventScope, now, now);
       return listAdminInvitations(code).find((row) => row.code === code)!;
     } catch (error) {
       const duplicate = error instanceof Error && error.message.includes("UNIQUE constraint failed");
@@ -190,10 +195,11 @@ export function updateAdminInvitation(input: {
   name?: string;
   maxGuests?: number;
   active?: boolean;
+  eventScope?: AssignableInvitationEventScope;
 }): AdminInvitation {
   const connection = database();
   const current = connection
-    .prepare("SELECT code, name, max_guests, active, created_at, updated_at FROM invitations WHERE code = ?")
+    .prepare("SELECT code, name, max_guests, active, event_scope, created_at, updated_at FROM invitations WHERE code = ?")
     .get(input.code) as InvitationRow | undefined;
 
   if (!current) throw new InvitationNotFoundError("Không tìm thấy thiệp mời này.");
@@ -201,12 +207,13 @@ export function updateAdminInvitation(input: {
   connection
     .prepare(`
       UPDATE invitations
-      SET name = ?, max_guests = ?, active = ?, updated_at = ?
+      SET name = ?, max_guests = ?, event_scope = ?, active = ?, updated_at = ?
       WHERE code = ?
     `)
     .run(
       input.name?.trim() ?? current.name,
       input.maxGuests ?? current.max_guests,
+      input.eventScope ?? normalizeInvitationEventScope(current.event_scope),
       input.active === undefined ? current.active : Number(input.active),
       new Date().toISOString(),
       input.code,

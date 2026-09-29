@@ -28,16 +28,19 @@ function milestoneAsset(milestone: LoveStoryMilestoneContent, index: number): Pu
 export function Invitation({
   media = [],
   content,
+  events,
   nextAfterGalleryTargetId = "loi-cam-on",
   showFooter = true,
 }: {
   media?: PublicMediaAsset[];
   content?: InvitationContent;
+  events?: InvitationContent["event"][];
   nextAfterGalleryTargetId?: string;
   showFooter?: boolean;
 }) {
   const copy = content ?? defaultInvitationContent();
   const { couple, cover, event } = copy;
+  const displayedEvents = events?.length ? events : [event];
   const styleFor = (key: string) => scaledTextStyle(textScale(copy.fontScales, key));
   const heroDate = formatWeddingHeroDate(event.dateTime);
   const hero = media.find((asset) => asset.slot === "hero" && asset.active);
@@ -84,7 +87,18 @@ export function Invitation({
       <SectionJumpButton targetId="le-cuoi" label="thông tin lễ cưới" />
     </section>
 
-    <section className="event-section section-shell" id="le-cuoi" aria-labelledby="event-title"><div className={`event-card${venue ? " has-venue-image" : ""}`}>{venue ? <MediaFrame asset={venue} className="venue-image media-frame-slot-venue" alt={venue.alt || event.venue} loading="lazy" /> : null}<div className="event-copy"><p className="eyebrow"><span style={styleFor("event.eyebrow")}>{event.eyebrow}</span></p><h2 id="event-title"><span style={styleFor("event.title")}>{event.title}</span></h2><FloralMark /><dl className="event-details"><div><dt><span style={styleFor("event.timeHeading")}>{event.timeHeading}</span></dt><dd><span style={styleFor("event.timeLabel")}>{event.timeLabel}</span></dd><dd><span style={styleFor("event.dateLabel")}>{event.dateLabel}</span></dd></div><div><dt><span style={styleFor("event.venueHeading")}>{event.venueHeading}</span></dt><dd><span style={styleFor("event.venue")}>{event.venue}</span></dd><dd><span style={styleFor("event.address")}>{event.address}</span></dd></div></dl><a className="map-link" href={event.mapsUrl} target="_blank" rel="noreferrer"><span style={styleFor("event.directionsLabel")}>{event.directionsLabel}</span> <span aria-hidden="true">↗</span></a></div></div><SectionJumpButton targetId="album-anh" label="album ảnh cưới" /></section>
+    <section className="event-section section-shell" id="le-cuoi" aria-labelledby="event-title">
+      <div style={{ display: "grid", gap: "1.5rem" }}>
+        {displayedEvents.map((displayEvent, index) => {
+          const showVenueImage = displayedEvents.length === 1 && venue;
+          return <div className={`event-card${showVenueImage ? " has-venue-image" : ""}`} key={`${displayEvent.dateTime}-${displayEvent.venue}`}>
+            {showVenueImage ? <MediaFrame asset={venue} className="venue-image media-frame-slot-venue" alt={venue.alt || displayEvent.venue} loading="lazy" /> : null}
+            <div className="event-copy"><p className="eyebrow"><span style={styleFor("event.eyebrow")}>{displayEvent.eyebrow}</span></p><h2 id={index === 0 ? "event-title" : undefined}><span style={styleFor("event.title")}>{displayEvent.title}</span></h2><FloralMark /><dl className="event-details"><div><dt><span style={styleFor("event.timeHeading")}>{displayEvent.timeHeading}</span></dt><dd><span style={styleFor("event.timeLabel")}>{displayEvent.timeLabel}</span></dd><dd><span style={styleFor("event.dateLabel")}>{displayEvent.dateLabel}</span></dd></div><div><dt><span style={styleFor("event.venueHeading")}>{displayEvent.venueHeading}</span></dt><dd><span style={styleFor("event.venue")}>{displayEvent.venue}</span></dd><dd><span style={styleFor("event.address")}>{displayEvent.address}</span></dd></div></dl><a className="map-link" href={displayEvent.mapsUrl} target="_blank" rel="noreferrer"><span style={styleFor("event.directionsLabel")}>{displayEvent.directionsLabel}</span> <span aria-hidden="true">↗</span></a></div>
+          </div>;
+        })}
+      </div>
+      <SectionJumpButton targetId="album-anh" label="album ảnh cưới" />
+    </section>
 
     <section className="gallery-section section-shell" id="album-anh" aria-labelledby="gallery-title"><div className="section-heading"><p className="eyebrow"><span style={styleFor("gallery.eyebrow")}>{copy.gallery.eyebrow}</span></p><h2 id="gallery-title"><span style={styleFor("gallery.title")}>{copy.gallery.title}</span></h2></div><Gallery assets={gallery} /><SectionJumpButton targetId={nextAfterGalleryTargetId} label={showFooter ? "lời cảm ơn" : "xác nhận tham dự"} /></section>
     {showFooter ? <InvitationFooter title={copy.footer.title} message={copy.footer.message} titleScale={textScale(copy.fontScales, "footer.title")} messageScale={textScale(copy.fontScales, "footer.message")} /> : null}

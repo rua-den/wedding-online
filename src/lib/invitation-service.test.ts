@@ -7,6 +7,7 @@ const invitation = {
   name: "Anh Minh & Chị Lan",
   maxGuests: 2,
   active: true,
+  eventScope: "oct11" as const,
 };
 
 function createStore(overrides: Partial<InvitationStore> = {}): InvitationStore {
@@ -18,10 +19,18 @@ function createStore(overrides: Partial<InvitationStore> = {}): InvitationStore 
 }
 
 describe("getInvitation", () => {
-  it("returns only the personalised fields for an active invitation", async () => {
+  it("returns the event scope with the personalised fields for an active invitation", async () => {
     await expect(getInvitation("secure-code", createStore())).resolves.toEqual({
       ok: true,
-      invitation: { guestName: "Anh Minh & Chị Lan", maxGuests: 2 },
+      invitation: { guestName: "Anh Minh & Chị Lan", maxGuests: 2, eventScope: "oct11" },
+    });
+  });
+
+  it("normalizes pre-migration invitations to the legacy scope", async () => {
+    const legacyInvitation = { code: "legacy", name: "Khách cũ", maxGuests: 1, active: true };
+    await expect(getInvitation("legacy", createStore({ findInvitation: async () => legacyInvitation }))).resolves.toEqual({
+      ok: true,
+      invitation: { guestName: "Khách cũ", maxGuests: 1, eventScope: "legacy" },
     });
   });
 

@@ -5,7 +5,7 @@ import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminTabs } from "@/components/admin-tabs";
 import { adminSessionCookie, verifyAdminSession } from "@/lib/admin-auth";
 import { listAdminMedia } from "@/lib/media-store";
-import { getAdminSummary, listAdminInvitations, listAdminRsvps } from "@/lib/sqlite-store";
+import { getAdminRsvpSummary, listAdminInvitationsWithResponses, listAdminRsvpTargets } from "@/lib/rsvp-report-store";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +17,9 @@ export default async function AdminPage() {
   return <>
     <AdminTabs active="dashboard" />
     <AdminDashboard
-      summary={getAdminSummary()}
-      invitations={listAdminInvitations()}
-      rsvps={listAdminRsvps()}
+      summary={getAdminRsvpSummary()}
+      invitations={listAdminInvitationsWithResponses()}
+      rsvps={listAdminRsvpTargets()}
       siteUrl={siteUrl}
       media={listAdminMedia()}
     />

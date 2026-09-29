@@ -14,6 +14,7 @@ const schema = `
     name TEXT NOT NULL,
     max_guests INTEGER NOT NULL CHECK (max_guests >= 1),
     active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    event_scope TEXT NOT NULL DEFAULT 'legacy',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -27,6 +28,18 @@ const schema = `
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS rsvps_attendance_updated_idx ON rsvps(attendance, updated_at DESC);
+  CREATE TABLE IF NOT EXISTS event_rsvps (
+    id INTEGER PRIMARY KEY,
+    invitation_code TEXT NOT NULL REFERENCES invitations(code) ON DELETE CASCADE,
+    event_scope TEXT NOT NULL CHECK (event_scope IN ('oct11', 'oct31')),
+    attendance TEXT NOT NULL CHECK (attendance IN ('attending', 'declined')),
+    guest_count INTEGER NOT NULL CHECK (guest_count >= 0),
+    message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(invitation_code, event_scope)
+  );
+  CREATE INDEX IF NOT EXISTS event_rsvps_scope_attendance_updated_idx ON event_rsvps(event_scope, attendance, updated_at DESC);
   CREATE TABLE IF NOT EXISTS media_assets (
     id INTEGER PRIMARY KEY,
     slot TEXT NOT NULL CHECK (slot IN ('hero', 'groom', 'bride', 'story', 'venue', 'gallery')),
@@ -66,6 +79,12 @@ const schema = `
   );
 `;
 
+function migrateInvitationEventScopeColumn(connection: SqliteDatabase): void {
+  const columns = connection.prepare("PRAGMA table_info(invitations)").all() as Array<{ name: string }>;
+  const existingColumns = new Set(columns.map((column) => column.name));
+  if (!existingColumns.has("event_scope")) connection.exec("ALTER TABLE invitations ADD COLUMN event_scope TEXT NOT NULL DEFAULT 'legacy'");
+}
+
 function migrateMediaAssetCropColumns(connection: SqliteDatabase): void {
   const columns = connection.prepare("PRAGMA table_info(media_assets)").all() as Array<{ name: string }>;
   const existingColumns = new Set(columns.map((column) => column.name));
@@ -98,11 +117,12 @@ export function getDatabase(): SqliteDatabase {
 export function initializeDatabase(): void {
   const connection = getDatabase();
   connection.exec(schema);
+  migrateInvitationEventScopeColumn(connection);
   migrateMediaAssetCropColumns(connection);
   migrateAppearanceFontColumn(connection);
   if (process.env.NODE_ENV === "development") {
     const now = new Date().toISOString();
-    connection.prepare(`INSERT INTO invitations (code, name, max_guests, active, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?) ON CONFLICT(code) DO NOTHING`).run("demo", "Khách mời thân yêu", 2, now, now);
+    connection.prepare(`INSERT INTO invitations (code, name, max_guests, active, event_scope, created_at, updated_at) VALUES (?, ?, ?, 1, 'legacy', ?, ?) ON CONFLICT(code) DO NOTHING`).run("demo", "Khách mời thân yêu", 2, now, now);
   }
 }
 

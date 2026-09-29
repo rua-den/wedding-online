@@ -2,17 +2,20 @@
 
 import { useMemo, useState } from "react";
 
+import { invitationEventScopeLabel, type AssignableInvitationEventScope, type InvitationEventScope } from "@/lib/invitation-event-scope";
 import type { MediaAsset } from "@/lib/media-store";
 import type { AdminInvitation, AdminRsvp, AdminSummary } from "@/lib/sqlite-store";
 import { AdminMediaPanel } from "./admin-media-panel";
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type InvitationFilter = "" | "active" | "disabled" | "responded" | "pending";
+type EventScopeInput = "" | AssignableInvitationEventScope;
+type DashboardRsvp = AdminRsvp & { eventScope?: InvitationEventScope };
 
 type AdminDashboardProps = {
   summary: AdminSummary;
   invitations: AdminInvitation[];
-  rsvps: AdminRsvp[];
+  rsvps: DashboardRsvp[];
   siteUrl: string;
   media?: MediaAsset[];
   fetcher?: Fetcher;
@@ -47,6 +50,12 @@ function invitationUrl(siteUrl: string, code: string) {
   return `${siteUrl.replace(/\/$/, "")}/moi/${encodeURIComponent(code)}`;
 }
 
+function editableEventScope(invitation: AdminInvitation): EventScopeInput {
+  return invitation.eventScope === "oct11" || invitation.eventScope === "oct31" || invitation.eventScope === "both"
+    ? invitation.eventScope
+    : "";
+}
+
 export function AdminDashboard({ summary: initialSummary, invitations: initialInvitations, rsvps: initialRsvps, siteUrl, media = [], fetcher }: AdminDashboardProps) {
   const request = fetcher ?? fetch;
   const [summary, setSummary] = useState<AdminSummary>(initialSummary ?? emptySummary);
@@ -58,12 +67,14 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
   const [status, setStatus] = useState<"" | "attending" | "declined" | "pending">("");
   const [name, setName] = useState("");
   const [maxGuests, setMaxGuests] = useState("2");
+  const [eventScope, setEventScope] = useState<EventScopeInput>("");
   const [createdLink, setCreatedLink] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingMaxGuests, setEditingMaxGuests] = useState("2");
+  const [editingEventScope, setEditingEventScope] = useState<EventScopeInput>("");
 
   const visibleInvitations = useMemo(() => {
     const normalized = invitationQuery.trim().toLocaleLowerCase();
@@ -94,7 +105,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
       if (filters.status) params.set("status", filters.status);
       const response = await request(`/api/admin/rsvps?${params.toString()}`, { cache: "no-store" });
       if (!response.ok) return;
-      const body = (await response.json()) as { rsvps?: AdminRsvp[] };
+      const body = (await response.json()) as { rsvps?: DashboardRsvp[] };
       if (body.rsvps) setRsvps(body.rsvps);
     } catch {
       // Keep the already-rendered rows available when a refresh is interrupted.
@@ -103,6 +114,10 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
 
   async function createInvitation(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!eventScope) {
+      setMessage("Vui lòng chọn ngày mời.");
+      return;
+    }
     setBusy(true);
     setMessage("");
     setCreatedLink("");
@@ -110,7 +125,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
       const response = await request("/api/admin/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, maxGuests: Number(maxGuests) }),
+        body: JSON.stringify({ name, maxGuests: Number(maxGuests), eventScope }),
       });
       if (!response.ok) {
         setMessage(await responseMessage(response, "Không thể tạo thiệp mời."));
@@ -122,6 +137,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
       setCreatedLink(body.invitationUrl);
       setMessage(`Đã tạo link mời cho ${body.invitation.name}`);
       setName("");
+      setEventScope("");
     } catch {
       setMessage("Không thể kết nối. Vui lòng thử lại.");
     } finally {
@@ -199,6 +215,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
     setEditingCode(invitation.code);
     setEditingName(invitation.name);
     setEditingMaxGuests(String(invitation.maxGuests));
+    setEditingEventScope(editableEventScope(invitation));
     setMessage("");
   }
 
@@ -206,16 +223,21 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
     setEditingCode(null);
     setEditingName("");
     setEditingMaxGuests("2");
+    setEditingEventScope("");
   }
 
   async function saveInvitation(code: string) {
+    if (!editingEventScope) {
+      setMessage("Vui lòng chọn ngày mời trước khi lưu.");
+      return;
+    }
     setBusy(true);
     setMessage("");
     try {
       const response = await request("/api/admin/invitations", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, name: editingName, maxGuests: Number(editingMaxGuests) }),
+        body: JSON.stringify({ code, name: editingName, maxGuests: Number(editingMaxGuests), eventScope: editingEventScope }),
       });
       if (!response.ok) {
         setMessage(await responseMessage(response, "Không thể cập nhật thiệp mời."));
@@ -267,7 +289,8 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
         <form className="admin-form-grid" onSubmit={createInvitation}>
           <label>Tên khách mời<input value={name} onChange={(event) => setName(event.target.value)} required maxLength={160} /></label>
           <label>Số khách tối đa<select value={maxGuests} onChange={(event) => setMaxGuests(event.target.value)}><option value="1">1 người</option><option value="2">2 người</option><option value="3">3 người</option><option value="4">4 người</option><option value="5">5 người</option></select></label>
-          <button className="admin-primary-button" type="submit" disabled={busy}>Tạo link mời</button>
+          <label>Ngày mời<select value={eventScope} onChange={(event) => setEventScope(event.target.value as EventScopeInput)} required><option value="" disabled>Chọn ngày mời</option><option value="oct11">11/10</option><option value="oct31">31/10</option><option value="both">Cả 11/10 và 31/10</option></select></label>
+          <button className="admin-primary-button" type="submit" disabled={busy || !eventScope}>Tạo link mời</button>
         </form>
         {createdLink ? <label className="admin-created-link">Link vừa tạo<input readOnly value={createdLink} onFocus={(event) => event.currentTarget.select()} /></label> : null}
       </section>
@@ -278,18 +301,19 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
           <label>Tìm thiệp mời<input aria-label="Tìm thiệp mời" placeholder="Tìm tên hoặc mã…" value={invitationQuery} onChange={(event) => setInvitationQuery(event.target.value)} /></label>
           <label>Lọc thiệp mời<select aria-label="Lọc thiệp mời" value={invitationFilter} onChange={(event) => setInvitationFilter(event.target.value as InvitationFilter)}><option value="">Tất cả</option><option value="active">Đang bật</option><option value="disabled">Đã tắt</option><option value="responded">Đã RSVP</option><option value="pending">Chưa RSVP</option></select></label>
         </div>
-        <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Khách mời</th><th>Mã</th><th>Link mời</th><th>Tối đa</th><th>RSVP</th><th>Trạng thái</th><th /></tr></thead><tbody>
+        <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Khách mời</th><th>Mã</th><th>Link mời</th><th>Ngày mời</th><th>Tối đa</th><th>RSVP</th><th>Trạng thái</th><th /></tr></thead><tbody>
           {visibleInvitations.map((invitation) => <tr key={invitation.code}>
             {editingCode === invitation.code ? <>
               <td><label className="admin-inline-field"><span className="sr-only">Tên khách mời {invitation.code}</span><input aria-label={`Tên khách mời ${invitation.code}`} value={editingName} onChange={(event) => setEditingName(event.target.value)} maxLength={160} /></label></td>
               <td><code>{invitation.code}</code></td>
               <td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button><a className="admin-text-button" href={invitationUrl(siteUrl, invitation.code)} target="_blank" rel="noreferrer" aria-label={`Xem trước thiệp của ${invitation.name}`}>Xem trước</a></div></div></td>
+              <td><label className="admin-inline-field"><span className="sr-only">Ngày mời {invitation.code}</span><select aria-label={`Ngày mời ${invitation.code}`} value={editingEventScope} onChange={(event) => setEditingEventScope(event.target.value as EventScopeInput)}><option value="" disabled>Chọn ngày mời</option><option value="oct11">11/10</option><option value="oct31">31/10</option><option value="both">11/10 + 31/10</option></select></label></td>
               <td><label className="admin-inline-field"><span className="sr-only">Số khách tối đa {invitation.code}</span><select aria-label={`Số khách tối đa ${invitation.code}`} value={editingMaxGuests} onChange={(event) => setEditingMaxGuests(event.target.value)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label></td>
               <td>{invitation.guestCount ?? "—"}</td>
               <td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td>
-              <td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void saveInvitation(invitation.code)}>Lưu</button><button className="admin-text-button" type="button" disabled={busy} onClick={cancelEditing}>Hủy</button></div></td>
+              <td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy || !editingEventScope} onClick={() => void saveInvitation(invitation.code)}>Lưu</button><button className="admin-text-button" type="button" disabled={busy} onClick={cancelEditing}>Hủy</button></div></td>
             </> : <>
-              <td>{invitation.name}</td><td><code>{invitation.code}</code></td><td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button><a className="admin-text-button" href={invitationUrl(siteUrl, invitation.code)} target="_blank" rel="noreferrer" aria-label={`Xem trước thiệp của ${invitation.name}`}>Xem trước</a></div></div></td><td>{invitation.maxGuests}</td><td>{invitation.guestCount ?? "—"}</td><td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td><td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => startEditing(invitation)}>Sửa</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void toggleInvitation(invitation)}>{invitation.active ? "Tắt link" : "Bật link"}</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void deleteInvitation(invitation)} aria-label={`Xóa link của ${invitation.name}`}>Xóa</button></div></td>
+              <td>{invitation.name}</td><td><code>{invitation.code}</code></td><td><div className="admin-invite-link"><a href={invitationUrl(siteUrl, invitation.code)}>{invitationUrl(siteUrl, invitation.code)}</a><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => void copyInvitationLink(invitation)} aria-label={`Sao chép link cho ${invitation.name}`}>Sao chép</button><a className="admin-text-button" href={invitationUrl(siteUrl, invitation.code)} target="_blank" rel="noreferrer" aria-label={`Xem trước thiệp của ${invitation.name}`}>Xem trước</a></div></div></td><td>{invitationEventScopeLabel(invitation.eventScope)}</td><td>{invitation.maxGuests}</td><td>{invitation.guestCount ?? "—"}</td><td><span className={`admin-badge ${invitation.active ? "is-active" : "is-inactive"}`}>{invitation.active ? "Đang bật" : "Đã tắt"}</span></td><td><div className="admin-actions"><button className="admin-text-button" type="button" disabled={busy} onClick={() => startEditing(invitation)}>Sửa</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void toggleInvitation(invitation)}>{invitation.active ? "Tắt link" : "Bật link"}</button><button className="admin-text-button" type="button" disabled={busy} onClick={() => void deleteInvitation(invitation)} aria-label={`Xóa link của ${invitation.name}`}>Xóa</button></div></td>
             </>}
           </tr>)}
         </tbody></table></div>
@@ -299,7 +323,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
         <div className="admin-panel-heading"><div><p className="eyebrow">Phản hồi</p><h2>RSVP</h2></div><a className="admin-secondary-button" href="/api/admin/export">Xuất CSV</a></div>
         <div className="admin-filter-row"><label>Tìm kiếm<input aria-label="Tìm RSVP" placeholder="Tìm tên hoặc mã…" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label>Trạng thái RSVP<select aria-label="Trạng thái RSVP" value={status} onChange={(event) => updateStatus(event.target.value as typeof status)}><option value="">Tất cả</option><option value="attending">Tham dự</option><option value="declined">Không tham dự</option><option value="pending">Chưa phản hồi</option></select></label></div>
         <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Khách mời</th><th>Trạng thái</th><th>Số khách</th><th>Lời nhắn</th><th>Cập nhật</th></tr></thead><tbody>
-          {visibleRsvps.map((rsvp) => <tr key={rsvp.code}><td>{rsvp.name}<small><code>{rsvp.code}</code></small></td><td><span className="admin-badge">{attendanceLabel(rsvp.attendance)}</span></td><td>{rsvp.guestCount ?? "—"}</td><td>{rsvp.message || "—"}</td><td>{formatDate(rsvp.updatedAt)}</td></tr>)}
+          {visibleRsvps.map((rsvp) => <tr key={`${rsvp.code}:${rsvp.eventScope ?? "legacy"}`}><td>{rsvp.name}<small><code>{rsvp.code}</code></small></td><td><span className="admin-badge">{attendanceLabel(rsvp.attendance)}</span></td><td>{rsvp.guestCount ?? "—"}</td><td>{rsvp.message || "—"}</td><td>{formatDate(rsvp.updatedAt)}</td></tr>)}
         </tbody></table></div>
       </section>
 

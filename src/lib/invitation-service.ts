@@ -1,3 +1,4 @@
+import { normalizeInvitationEventScope, type InvitationEventScope } from "./invitation-event-scope";
 import { validateRsvp, type Attendance } from "./rsvp";
 
 export type Invitation = {
@@ -5,6 +6,7 @@ export type Invitation = {
   name: string;
   maxGuests: number;
   active: boolean;
+  eventScope?: InvitationEventScope;
 };
 
 export type StoredRsvp = {
@@ -21,7 +23,7 @@ export type InvitationStore = {
 };
 
 type InvitationLookup =
-  | { ok: true; invitation: { guestName: string; maxGuests: number } }
+  | { ok: true; invitation: { guestName: string; maxGuests: number; eventScope: InvitationEventScope } }
   | { ok: false; status: 404; message: string };
 
 type SubmissionResult = { ok: true } | { ok: false; status: 400 | 404; message: string };
@@ -33,7 +35,14 @@ export async function getInvitation(code: string, store: InvitationStore): Promi
     return { ok: false, status: 404, message: "Không tìm thấy thiệp mời này." };
   }
 
-  return { ok: true, invitation: { guestName: invitation.name, maxGuests: invitation.maxGuests } };
+  return {
+    ok: true,
+    invitation: {
+      guestName: invitation.name,
+      maxGuests: invitation.maxGuests,
+      eventScope: normalizeInvitationEventScope(invitation.eventScope),
+    },
+  };
 }
 
 export async function submitRsvp(

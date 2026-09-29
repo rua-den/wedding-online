@@ -31,6 +31,21 @@ afterEach(() => {
 });
 
 describe("SQLite invitation repository", () => {
+  it("persists and edits the invitation event scope", async () => {
+    const created = createAdminInvitation({ code: "event-guest", name: "Mai", maxGuests: 2, eventScope: "oct11" });
+    expect(created.eventScope).toBe("oct11");
+    await expect(sqliteInvitationStore.findInvitation("event-guest")).resolves.toMatchObject({ eventScope: "oct11" });
+
+    const updated = updateAdminInvitation({ code: "event-guest", eventScope: "both" });
+    expect(updated.eventScope).toBe("both");
+    expect(listAdminInvitations("event-guest")[0].eventScope).toBe("both");
+  });
+
+  it("keeps direct legacy creations backward compatible", () => {
+    const created = createAdminInvitation({ code: "legacy-guest", name: "Khách cũ", maxGuests: 1 });
+    expect(created.eventScope).toBe("legacy");
+  });
+
   it("upserts an RSVP while preserving its created timestamp", async () => {
     createAdminInvitation({ code: "guest-1", name: "Mai", maxGuests: 2 });
     await sqliteInvitationStore.upsertRsvp({
@@ -124,8 +139,7 @@ describe("SQLite invitation repository", () => {
   });
 
   it("generates a URL-safe code when an admin does not supply one", () => {
-    const invitation = createAdminInvitation({ name: "Cô Lan", maxGuests: 2 });
+    const invitation = createAdminInvitation({ name: "Cô Lan", maxGuests: 2, eventScope: "oct31" });
     expect(invitation.code).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
-
 });

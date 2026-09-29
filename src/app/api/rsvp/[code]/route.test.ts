@@ -1,7 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/sqlite-store", () => ({
-  sqliteInvitationStore: { findInvitation: vi.fn(), upsertRsvp: vi.fn() },
+vi.mock("@/lib/event-rsvp-store", () => ({
+  sqliteInvitationRsvpStore: {
+    findInvitation: vi.fn(async () => null),
+    upsertLegacyRsvp: vi.fn(),
+    upsertEventRsvp: vi.fn(),
+  },
+}));
+vi.mock("@/lib/invitation-event-profile-store", () => ({
+  getInvitationEventProfiles: vi.fn(() => ({ oct11: null, oct31: null })),
+}));
+vi.mock("@/lib/invitation-content-store", () => ({
+  getInvitationContent: vi.fn(() => ({
+    event: { rsvpDeadline: "2026-12-20T23:59:59+07:00" },
+    rsvp: { successMessage: "Cảm ơn bạn đã xác nhận tham dự!" },
+  })),
 }));
 
 import { PUT } from "./route";
