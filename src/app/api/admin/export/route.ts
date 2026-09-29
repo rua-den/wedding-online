@@ -1,14 +1,15 @@
 import { rejectUnlessAdmin } from "@/lib/admin-route";
 import { toSafeCsv } from "@/lib/guest-csv";
-import { getRsvpExportRows } from "@/lib/sqlite-store";
+import { getRsvpTargetExportRows } from "@/lib/rsvp-report-store";
 
 export async function GET(request: Request) {
   const rejected = rejectUnlessAdmin(request);
   if (rejected) return rejected;
   try {
-    const rows = getRsvpExportRows().map((row) => ({
+    const rows = getRsvpTargetExportRows().map((row) => ({
       code: row.code,
-      name: row.name,
+      name: row.guestName,
+      eventScope: row.eventScope,
       maxGuests: row.maxGuests,
       active: row.active,
       attendance: row.attendance ?? "pending",
@@ -28,4 +29,3 @@ export async function GET(request: Request) {
     return Response.json({ message: "Không thể xuất dữ liệu RSVP." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
-

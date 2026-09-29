@@ -5,10 +5,10 @@ import {
   adminInvitationUpdateSchema,
 } from "@/lib/admin-validation";
 import { noStoreJson, rejectUnlessAdmin } from "@/lib/admin-route";
+import { getAdminRsvpSummary } from "@/lib/rsvp-report-store";
 import {
   createAdminInvitation,
   deleteAdminInvitation,
-  getAdminSummary,
   InvitationCodeConflictError,
   InvitationNotFoundError,
   listAdminInvitations,
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const parsed = adminInvitationListSchema.safeParse({ q: url.searchParams.get("q") ?? "" });
   if (!parsed.success) return noStoreJson({ message: "Bộ lọc không hợp lệ." }, { status: 400 });
   try {
-    return noStoreJson({ invitations: listAdminInvitations(parsed.data.q), summary: getAdminSummary() });
+    return noStoreJson({ invitations: listAdminInvitations(parsed.data.q), summary: getAdminRsvpSummary() });
   } catch {
     return noStoreJson({ message: "Không thể tải danh sách thiệp mời." }, { status: 500 });
   }
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const invitation = createAdminInvitation(parsed.data);
     const siteUrl = (process.env.PUBLIC_SITE_URL ?? new URL(request.url).origin).replace(/\/$/, "");
     return noStoreJson(
-      { invitation, invitationUrl: `${siteUrl}/moi/${invitation.code}`, summary: getAdminSummary() },
+      { invitation, invitationUrl: `${siteUrl}/moi/${invitation.code}`, summary: getAdminRsvpSummary() },
       { status: 201 },
     );
   } catch (error) {
@@ -54,7 +54,7 @@ export async function PATCH(request: Request) {
   const parsed = adminInvitationUpdateSchema.safeParse(body);
   if (!parsed.success) return noStoreJson({ message: "Thông tin cập nhật chưa hợp lệ." }, { status: 400 });
   try {
-    return noStoreJson({ invitation: updateAdminInvitation(parsed.data), summary: getAdminSummary() });
+    return noStoreJson({ invitation: updateAdminInvitation(parsed.data), summary: getAdminRsvpSummary() });
   } catch (error) {
     if (error instanceof InvitationNotFoundError) return noStoreJson({ message: error.message }, { status: 404 });
     return noStoreJson({ message: "Không thể cập nhật thiệp mời." }, { status: 500 });
@@ -68,10 +68,9 @@ export async function DELETE(request: Request) {
   const parsed = adminInvitationDeleteSchema.safeParse(body);
   if (!parsed.success) return noStoreJson({ message: "Thiệp mời cần xoá chưa hợp lệ." }, { status: 400 });
   try {
-    return noStoreJson({ deleted: deleteAdminInvitation(parsed.data.code), summary: getAdminSummary() });
+    return noStoreJson({ deleted: deleteAdminInvitation(parsed.data.code), summary: getAdminRsvpSummary() });
   } catch (error) {
     if (error instanceof InvitationNotFoundError) return noStoreJson({ message: error.message }, { status: 404 });
     return noStoreJson({ message: "Không thể xoá thiệp mời." }, { status: 500 });
   }
 }
-
