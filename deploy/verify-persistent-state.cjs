@@ -31,18 +31,19 @@ function isWithin(target, root) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-function countFiles(root) {
-  let count = 0;
-  const stack = [root];
+function listFiles(root) {
+  const files = [];
+  const stack = [{ absolute: root, relative: "" }];
   while (stack.length > 0) {
     const current = stack.pop();
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const target = path.join(current, entry.name);
-      if (entry.isDirectory()) stack.push(target);
-      else if (entry.isFile()) count += 1;
+    for (const entry of fs.readdirSync(current.absolute, { withFileTypes: true })) {
+      const absolute = path.join(current.absolute, entry.name);
+      const relative = current.relative ? path.join(current.relative, entry.name) : entry.name;
+      if (entry.isDirectory()) stack.push({ absolute, relative });
+      else if (entry.isFile()) files.push(relative.split(path.sep).join("/"));
     }
   }
-  return count;
+  return files.sort();
 }
 
 function tableExists(db, table) {
@@ -98,11 +99,13 @@ function inspect() {
       : String(integrityRows);
     if (integrity !== "ok") fail(`SQLite integrity_check failed: ${integrity}`);
 
+    const uploadFiles = listFiles(uploadsPath);
     return {
       dbPath,
       uploadsPath,
       counts: tableCounts(db),
-      uploadFileCount: countFiles(uploadsPath),
+      uploadFiles,
+      uploadFileCount: uploadFiles.length,
       music: readMusic(db, uploadsPath),
       db,
     };
@@ -120,6 +123,7 @@ function serializable(snapshot) {
     dbPath: snapshot.dbPath,
     uploadsPath: snapshot.uploadsPath,
     counts: snapshot.counts,
+    uploadFiles: snapshot.uploadFiles,
     uploadFileCount: snapshot.uploadFileCount,
     music: snapshot.music,
   };
@@ -150,6 +154,10 @@ function assertPreserved(before, after) {
     if (current < previous) fail(`${table} row count decreased across deploy: ${previous} -> ${current}`);
   }
 
+  const afterFiles = new Set(Array.isArray(after.uploadFiles) ? after.uploadFiles : []);
+  for (const previousFile of Array.isArray(before.uploadFiles) ? before.uploadFiles : []) {
+    if (!afterFiles.has(previousFile)) fail(`persisted upload disappeared across deploy: ${previousFile}`);
+  }
   if (after.uploadFileCount < Number(before.uploadFileCount ?? 0)) {
     fail(`upload file count decreased across deploy: ${before.uploadFileCount} -> ${after.uploadFileCount}`);
   }
