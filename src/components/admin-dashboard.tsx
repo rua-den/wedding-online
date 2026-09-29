@@ -275,10 +275,10 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
 
       <section className="admin-stat-grid" aria-label="Tổng quan RSVP">
         <article className="admin-stat"><span>Tổng link mời</span><strong>{summary.invitationCount}</strong></article>
-        <article className="admin-stat"><span>Đã phản hồi</span><strong>{summary.respondedCount}</strong></article>
-        <article className="admin-stat"><span>Tham dự</span><strong>{summary.attendingCount}</strong></article>
-        <article className="admin-stat"><span>Không tham dự</span><strong>{summary.declinedCount}</strong></article>
-        <article className="admin-stat"><span>Chưa phản hồi</span><strong>{summary.pendingCount}</strong></article>
+        <article className="admin-stat"><span>Lượt đã phản hồi</span><strong>{summary.respondedCount}</strong></article>
+        <article className="admin-stat"><span>Lượt tham dự</span><strong>{summary.attendingCount}</strong></article>
+        <article className="admin-stat"><span>Lượt không tham dự</span><strong>{summary.declinedCount}</strong></article>
+        <article className="admin-stat"><span>Lượt chưa phản hồi</span><strong>{summary.pendingCount}</strong></article>
         <article className="admin-stat"><span>Số khách xác nhận</span><strong>{summary.confirmedGuestCount}</strong></article>
       </section>
 
