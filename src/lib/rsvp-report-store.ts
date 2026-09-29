@@ -1,7 +1,12 @@
 import type { InvitationEventScope } from "./invitation-event-scope";
 import type { Attendance } from "./rsvp";
 import { getDatabase, initializeDatabase } from "./sqlite";
-import type { AdminSummary } from "./sqlite-store";
+import {
+  deleteAdminInvitation,
+  type AdminInvitation,
+  type AdminSummary,
+  type DeletedAdminInvitation,
+} from "./sqlite-store";
 
 export type AdminRsvpTarget = {
   code: string;
@@ -28,6 +33,19 @@ type TargetRow = {
   message: string | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+type InvitationAggregateRow = {
+  code: string;
+  name: string;
+  max_guests: number;
+  active: number;
+  event_scope: InvitationEventScope;
+  created_at: string;
+  updated_at: string;
+  attendance: Attendance | null;
+  guest_count: number | null;
+  rsvp_updated_at: string | null;
 };
 
 function database() {
@@ -93,6 +111,43 @@ export function listAdminRsvpTargets(filters: { query?: string; status?: Attenda
   }));
 }
 
+export function listAdminInvitationsWithResponses(query = ""): AdminInvitation[] {
+  const search = `%${query.trim()}%`;
+  const rows = database().prepare(`
+    WITH responses AS (
+      SELECT invitation_code AS code, attendance, guest_count, updated_at FROM rsvps
+      UNION ALL
+      SELECT invitation_code AS code, attendance, guest_count, updated_at FROM event_rsvps
+    )
+    SELECT i.code, i.name, i.max_guests, i.active, i.event_scope, i.created_at, i.updated_at,
+           CASE
+             WHEN COUNT(r.code) = 0 THEN NULL
+             WHEN SUM(CASE WHEN r.attendance = 'attending' THEN 1 ELSE 0 END) > 0 THEN 'attending'
+             ELSE 'declined'
+           END AS attendance,
+           CASE WHEN COUNT(r.code) = 0 THEN NULL ELSE COALESCE(SUM(r.guest_count), 0) END AS guest_count,
+           MAX(r.updated_at) AS rsvp_updated_at
+    FROM invitations i
+    LEFT JOIN responses r ON r.code = i.code
+    WHERE ? = '%%' OR i.name LIKE ? COLLATE NOCASE OR i.code LIKE ? COLLATE NOCASE
+    GROUP BY i.code, i.name, i.max_guests, i.active, i.event_scope, i.created_at, i.updated_at, i.id
+    ORDER BY i.created_at DESC, i.id DESC
+  `).all(search, search, search) as InvitationAggregateRow[];
+
+  return rows.map((row) => ({
+    code: row.code,
+    name: row.name,
+    maxGuests: row.max_guests,
+    active: row.active === 1,
+    eventScope: row.event_scope,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    attendance: row.attendance,
+    guestCount: row.guest_count,
+    rsvpUpdatedAt: row.rsvp_updated_at,
+  }));
+}
+
 export function getAdminRsvpSummary(): AdminSummary {
   return database().prepare(`${targetCte}
     SELECT
@@ -105,6 +160,12 @@ export function getAdminRsvpSummary(): AdminSummary {
     FROM targets t
     LEFT JOIN responses r ON r.code = t.code AND r.event_scope = t.event_scope
   `).get() as AdminSummary;
+}
+
+export function deleteAdminInvitationWithResponses(code: string): DeletedAdminInvitation {
+  const hadEventRsvp = Boolean(database().prepare("SELECT 1 FROM event_rsvps WHERE invitation_code = ? LIMIT 1").get(code));
+  const deleted = deleteAdminInvitation(code);
+  return { ...deleted, hadRsvp: deleted.hadRsvp || hadEventRsvp };
 }
 
 export function getRsvpTargetExportRows(): AdminRsvpTarget[] {

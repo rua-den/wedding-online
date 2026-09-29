@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sqliteInvitationRsvpStore } from "./event-rsvp-store";
-import { getAdminRsvpSummary, listAdminRsvpTargets } from "./rsvp-report-store";
+import {
+  deleteAdminInvitationWithResponses,
+  getAdminRsvpSummary,
+  listAdminInvitationsWithResponses,
+  listAdminRsvpTargets,
+} from "./rsvp-report-store";
 import { closeDatabaseForTests } from "./sqlite";
 import { createAdminInvitation, sqliteInvitationStore } from "./sqlite-store";
 
@@ -57,5 +62,22 @@ describe("RSVP reporting", () => {
       pendingCount: 0,
       confirmedGuestCount: 6,
     });
+  });
+
+  it("hydrates the invitation list from both legacy and event responses", async () => {
+    createAdminInvitation({ code: "both", name: "Gia đình Minh", maxGuests: 4, eventScope: "both" });
+    await sqliteInvitationRsvpStore.upsertEventRsvp({ code: "both", name: "Gia đình Minh", eventScope: "oct11", attendance: "attending", guestCount: 3, message: "11" });
+
+    expect(listAdminInvitationsWithResponses()).toMatchObject([
+      { code: "both", attendance: "attending", guestCount: 3, eventScope: "both" },
+    ]);
+  });
+
+  it("deletes event responses with the invitation and reports that an RSVP existed", async () => {
+    createAdminInvitation({ code: "delete-me", name: "Khách", maxGuests: 2, eventScope: "oct31" });
+    await sqliteInvitationRsvpStore.upsertEventRsvp({ code: "delete-me", name: "Khách", eventScope: "oct31", attendance: "attending", guestCount: 2, message: "Có mặt" });
+
+    expect(deleteAdminInvitationWithResponses("delete-me")).toEqual({ code: "delete-me", name: "Khách", hadRsvp: true });
+    expect(listAdminRsvpTargets()).toHaveLength(0);
   });
 });
