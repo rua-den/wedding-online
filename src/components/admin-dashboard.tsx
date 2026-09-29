@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { invitationEventScopeLabel, type AssignableInvitationEventScope } from "@/lib/invitation-event-scope";
+import { invitationEventScopeLabel, type AssignableInvitationEventScope, type InvitationEventScope } from "@/lib/invitation-event-scope";
 import type { MediaAsset } from "@/lib/media-store";
 import type { AdminInvitation, AdminRsvp, AdminSummary } from "@/lib/sqlite-store";
 import { AdminMediaPanel } from "./admin-media-panel";
@@ -10,11 +10,12 @@ import { AdminMediaPanel } from "./admin-media-panel";
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type InvitationFilter = "" | "active" | "disabled" | "responded" | "pending";
 type EventScopeInput = "" | AssignableInvitationEventScope;
+type DashboardRsvp = AdminRsvp & { eventScope?: InvitationEventScope };
 
 type AdminDashboardProps = {
   summary: AdminSummary;
   invitations: AdminInvitation[];
-  rsvps: AdminRsvp[];
+  rsvps: DashboardRsvp[];
   siteUrl: string;
   media?: MediaAsset[];
   fetcher?: Fetcher;
@@ -104,7 +105,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
       if (filters.status) params.set("status", filters.status);
       const response = await request(`/api/admin/rsvps?${params.toString()}`, { cache: "no-store" });
       if (!response.ok) return;
-      const body = (await response.json()) as { rsvps?: AdminRsvp[] };
+      const body = (await response.json()) as { rsvps?: DashboardRsvp[] };
       if (body.rsvps) setRsvps(body.rsvps);
     } catch {
       // Keep the already-rendered rows available when a refresh is interrupted.
@@ -322,7 +323,7 @@ export function AdminDashboard({ summary: initialSummary, invitations: initialIn
         <div className="admin-panel-heading"><div><p className="eyebrow">Phản hồi</p><h2>RSVP</h2></div><a className="admin-secondary-button" href="/api/admin/export">Xuất CSV</a></div>
         <div className="admin-filter-row"><label>Tìm kiếm<input aria-label="Tìm RSVP" placeholder="Tìm tên hoặc mã…" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label>Trạng thái RSVP<select aria-label="Trạng thái RSVP" value={status} onChange={(event) => updateStatus(event.target.value as typeof status)}><option value="">Tất cả</option><option value="attending">Tham dự</option><option value="declined">Không tham dự</option><option value="pending">Chưa phản hồi</option></select></label></div>
         <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Khách mời</th><th>Trạng thái</th><th>Số khách</th><th>Lời nhắn</th><th>Cập nhật</th></tr></thead><tbody>
-          {visibleRsvps.map((rsvp) => <tr key={rsvp.code}><td>{rsvp.name}<small><code>{rsvp.code}</code></small></td><td><span className="admin-badge">{attendanceLabel(rsvp.attendance)}</span></td><td>{rsvp.guestCount ?? "—"}</td><td>{rsvp.message || "—"}</td><td>{formatDate(rsvp.updatedAt)}</td></tr>)}
+          {visibleRsvps.map((rsvp) => <tr key={`${rsvp.code}:${rsvp.eventScope ?? "legacy"}`}><td>{rsvp.name}<small><code>{rsvp.code}</code></small></td><td><span className="admin-badge">{attendanceLabel(rsvp.attendance)}</span></td><td>{rsvp.guestCount ?? "—"}</td><td>{rsvp.message || "—"}</td><td>{formatDate(rsvp.updatedAt)}</td></tr>)}
         </tbody></table></div>
       </section>
 
