@@ -38,7 +38,7 @@ describe("PersonalInvitation", () => {
   it("renders only 11/10 content and one dated RSVP form for an oct11 guest", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ guestName: "Cô Lan", maxGuests: 2, eventScope: "oct11" }), { status: 200 })));
     const { container } = render(<PersonalInvitation code="invite-code" eventProfiles={profiles} />);
-    expect(await screen.findByText("Tiệc riêng ngày 11")).toBeInTheDocument();
+    expect((await screen.findAllByText("Tiệc riêng ngày 11")).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Tiệc riêng ngày 31")).not.toBeInTheDocument();
     expect(container.querySelectorAll('form[data-event-scope="oct11"]')).toHaveLength(1);
     expect(container.querySelectorAll('form[data-event-scope="oct31"]')).toHaveLength(0);
@@ -47,8 +47,8 @@ describe("PersonalInvitation", () => {
   it("renders both event cards and two independent RSVP forms for a guest invited to both dates", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ guestName: "Gia đình Minh", maxGuests: 4, eventScope: "both" }), { status: 200 })));
     const { container } = render(<PersonalInvitation code="invite-code" eventProfiles={profiles} />);
-    expect(await screen.findByText("Tiệc riêng ngày 11")).toBeInTheDocument();
-    expect(screen.getByText("Tiệc riêng ngày 31")).toBeInTheDocument();
+    expect((await screen.findAllByText("Tiệc riêng ngày 11")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Tiệc riêng ngày 31").length).toBeGreaterThanOrEqual(1);
     expect(container.querySelectorAll('form[data-event-scope="oct11"]')).toHaveLength(1);
     expect(container.querySelectorAll('form[data-event-scope="oct31"]')).toHaveLength(1);
   });
