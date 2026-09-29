@@ -28,6 +28,18 @@ const schema = `
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS rsvps_attendance_updated_idx ON rsvps(attendance, updated_at DESC);
+  CREATE TABLE IF NOT EXISTS event_rsvps (
+    id INTEGER PRIMARY KEY,
+    invitation_code TEXT NOT NULL REFERENCES invitations(code) ON DELETE CASCADE,
+    event_scope TEXT NOT NULL CHECK (event_scope IN ('oct11', 'oct31')),
+    attendance TEXT NOT NULL CHECK (attendance IN ('attending', 'declined')),
+    guest_count INTEGER NOT NULL CHECK (guest_count >= 0),
+    message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(invitation_code, event_scope)
+  );
+  CREATE INDEX IF NOT EXISTS event_rsvps_scope_attendance_updated_idx ON event_rsvps(event_scope, attendance, updated_at DESC);
   CREATE TABLE IF NOT EXISTS media_assets (
     id INTEGER PRIMARY KEY,
     slot TEXT NOT NULL CHECK (slot IN ('hero', 'groom', 'bride', 'story', 'venue', 'gallery')),

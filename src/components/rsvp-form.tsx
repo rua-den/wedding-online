@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
+import type { DatedInvitationEventScope } from "@/lib/invitation-event-profile-store";
 import {
   INVITATION_DISPLAY_FONT_FAMILY,
   scaledTextStyle,
@@ -16,13 +17,14 @@ type RsvpFormProps = {
   code: string;
   guestName: string;
   maxGuests: number;
+  eventScope?: DatedInvitationEventScope;
   isClosed?: boolean;
   copy?: InvitationContent["rsvp"];
   fontScales?: Record<string, number>;
   fetcher?: Fetcher;
 };
 
-export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, fontScales, fetcher = fetch }: RsvpFormProps) {
+export function RsvpForm({ code, guestName, maxGuests, eventScope, isClosed = false, copy, fontScales, fetcher = fetch }: RsvpFormProps) {
   const labels = copy ?? defaultInvitationContent().rsvp;
   const styleFor = (key: string) => scaledTextStyle(textScale(fontScales, key));
   const [attendance, setAttendance] = useState<"attending" | "declined">("attending");
@@ -30,6 +32,9 @@ export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, f
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fieldSuffix = eventScope ?? "legacy";
+  const guestCountId = `guest-count-${fieldSuffix}`;
+  const messageId = `rsvp-message-${fieldSuffix}`;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,10 +42,16 @@ export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, f
     setStatus({ type: "idle", message: "" });
 
     try {
+      const payload = {
+        ...(eventScope ? { eventScope } : {}),
+        attendance,
+        guestCount: attendance === "declined" ? 0 : guestCount,
+        message,
+      };
       const response = await fetcher(`/api/rsvp/${code}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ attendance, guestCount: attendance === "declined" ? 0 : guestCount, message }),
+        body: JSON.stringify(payload),
       });
       const body = (await response.json()) as { message?: string };
 
@@ -61,18 +72,18 @@ export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, f
   const messageFontSize = `${textScale(fontScales, "rsvp.messagePlaceholder") / 100}rem`;
 
   return (
-    <form className="rsvp-form" onSubmit={onSubmit}>
+    <form className="rsvp-form" onSubmit={onSubmit} data-event-scope={eventScope ?? "legacy"}>
       <p className="rsvp-greeting"><span style={styleFor("rsvp.greetingPrefix")}>{labels.greetingPrefix}</span> <strong>{guestName}</strong></p>
       {isClosed ? <p className="form-status form-status-error"><span style={styleFor("rsvp.closedMessage")}>{labels.closedMessage}</span></p> : null}
       <fieldset disabled={isClosed || isSubmitting}>
         <legend><span style={styleFor("rsvp.attendanceQuestion")}>{labels.attendanceQuestion}</span></legend>
-        <label><input checked={attendance === "attending"} name="attendance" onChange={() => setAttendance("attending")} type="radio" /> <span style={styleFor("rsvp.attendingLabel")}>{labels.attendingLabel}</span></label>
-        <label><input checked={attendance === "declined"} name="attendance" onChange={() => setAttendance("declined")} type="radio" /> <span style={styleFor("rsvp.declinedLabel")}>{labels.declinedLabel}</span></label>
-        <label htmlFor="guest-count"><span style={styleFor("rsvp.guestCountLabel")}>{labels.guestCountLabel}</span></label>
+        <label><input checked={attendance === "attending"} name={`attendance-${fieldSuffix}`} onChange={() => setAttendance("attending")} type="radio" /> <span style={styleFor("rsvp.attendingLabel")}>{labels.attendingLabel}</span></label>
+        <label><input checked={attendance === "declined"} name={`attendance-${fieldSuffix}`} onChange={() => setAttendance("declined")} type="radio" /> <span style={styleFor("rsvp.declinedLabel")}>{labels.declinedLabel}</span></label>
+        <label htmlFor={guestCountId}><span style={styleFor("rsvp.guestCountLabel")}>{labels.guestCountLabel}</span></label>
         <select
           aria-label={labels.guestCountLabel}
           disabled={attendance === "declined"}
-          id="guest-count"
+          id={guestCountId}
           onChange={(event) => setGuestCount(Number(event.target.value))}
           style={{ fontFamily: INVITATION_DISPLAY_FONT_FAMILY, fontSize: selectFontSize }}
           value={attendance === "declined" ? 0 : guestCount}
@@ -80,10 +91,10 @@ export function RsvpForm({ code, guestName, maxGuests, isClosed = false, copy, f
           {Array.from({ length: maxGuests }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count} {labels.guestCountSuffix}</option>)}
           {attendance === "declined" ? <option value={0}>0 {labels.guestCountSuffix}</option> : null}
         </select>
-        <label htmlFor="rsvp-message"><span style={styleFor("rsvp.messageLabel")}>{labels.messageLabel}</span></label>
+        <label htmlFor={messageId}><span style={styleFor("rsvp.messageLabel")}>{labels.messageLabel}</span></label>
         <textarea
           aria-label={labels.messageLabel}
-          id="rsvp-message"
+          id={messageId}
           maxLength={500}
           onChange={(event) => setMessage(event.target.value)}
           placeholder={labels.messagePlaceholder}

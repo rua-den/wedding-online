@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
+import type { DatedInvitationEventScope, InvitationEventProfiles } from "@/lib/invitation-event-profile-store";
 import { resolveInvitationEvents } from "@/lib/invitation-event-resolver";
-import type { InvitationEventProfiles } from "@/lib/invitation-event-profile-store";
 import type { InvitationEventScope } from "@/lib/invitation-event-scope";
 import type { PublicMediaAsset } from "@/lib/media-store";
 import { scaledTextStyle, textScale } from "@/lib/invitation-typography";
@@ -18,6 +18,10 @@ import { SectionJumpButton } from "./section-jump-button";
 type InvitationData = { guestName: string; maxGuests: number; eventScope: InvitationEventScope };
 const invitationLoadError = "Không thể tải thiệp mời. Vui lòng thử lại sau.";
 const emptyEventProfiles: InvitationEventProfiles = { oct11: null, oct31: null };
+
+function isDatedScope(scope: InvitationEventScope): scope is DatedInvitationEventScope {
+  return scope === "oct11" || scope === "oct31";
+}
 
 export function PersonalInvitation({
   code,
@@ -53,7 +57,7 @@ export function PersonalInvitation({
   if (!resolved.ok) return <main className="guest-state"><h1>Thiệp mời chưa sẵn sàng</h1><p>{resolved.message}</p></main>;
 
   const personalizedCopy: InvitationContent = { ...copy, event: resolved.primary };
-  const isClosed = new Date() > new Date(resolved.primary.rsvpDeadline);
+  const rsvpEvents = invitation.eventScope === "legacy" ? [resolved.primary] : resolved.events;
 
   return <>
     <section className="personal-cover personal-cover-full section-shell" aria-labelledby="personal-invitation-title">
@@ -66,11 +70,29 @@ export function PersonalInvitation({
     </section>
     <Invitation media={media} content={personalizedCopy} events={resolved.events} nextAfterGalleryTargetId="xac-nhan-tham-du" showFooter={false} />
     <section id="xac-nhan-tham-du" className="rsvp-section section-shell" aria-labelledby="rsvp-title">
-      <div className="rsvp-card">
+      <div className="section-heading">
         <p className="eyebrow"><span style={styleFor("rsvp.eyebrow")}>{copy.rsvp.eyebrow}</span></p>
         <h2 id="rsvp-title"><span style={styleFor("rsvp.title")}>{copy.rsvp.title}</span></h2>
-        <p><span style={styleFor("rsvp.intro")}>{copy.rsvp.intro} {new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(resolved.primary.rsvpDeadline))}.</span></p>
-        <RsvpForm code={code} guestName={invitation.guestName} isClosed={isClosed} maxGuests={invitation.maxGuests} copy={copy.rsvp} fontScales={copy.fontScales} />
+      </div>
+      <div style={{ display: "grid", gap: "1.5rem", margin: "2rem auto 0", maxWidth: "38rem" }}>
+        {rsvpEvents.map((event) => {
+          const datedScope = isDatedScope(event.scope) ? event.scope : undefined;
+          const isClosed = new Date() > new Date(event.rsvpDeadline);
+          return <div className="rsvp-card" key={`${event.scope}-${event.dateTime}`}>
+            {datedScope ? <p className="eyebrow">Xác nhận {event.dateLabel}</p> : null}
+            {datedScope ? <h3>{event.title}</h3> : null}
+            <p><span style={styleFor("rsvp.intro")}>{copy.rsvp.intro} {new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(new Date(event.rsvpDeadline))}.</span></p>
+            <RsvpForm
+              code={code}
+              guestName={invitation.guestName}
+              eventScope={datedScope}
+              isClosed={isClosed}
+              maxGuests={invitation.maxGuests}
+              copy={copy.rsvp}
+              fontScales={copy.fontScales}
+            />
+          </div>;
+        })}
       </div>
       <SectionJumpButton targetId="loi-cam-on" label="lời cảm ơn" />
     </section>

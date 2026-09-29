@@ -21,10 +21,23 @@ describe("RsvpForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Gửi xác nhận" }));
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledWith("/api/rsvp/secure-code", expect.objectContaining({ method: "PUT" })));
+    const init = fetcher.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toEqual({ attendance: "attending", guestCount: 2, message: "Hẹn gặp hai bạn!" });
     expect(await screen.findByText("Cảm ơn bạn đã xác nhận tham dự!")).toBeInTheDocument();
   });
 
-  it("renders editable copy without changing the RSVP API payload", async () => {
+  it("includes the dated event scope without changing the rest of the RSVP payload", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    render(<RsvpForm code="dated-code" guestName="Minh" maxGuests={2} eventScope="oct31" fetcher={fetcher} />);
+    fireEvent.change(screen.getByLabelText("Số người tham dự"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Gửi xác nhận" }));
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalled());
+    const init = fetcher.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toEqual({ eventScope: "oct31", attendance: "attending", guestCount: 2, message: "" });
+  });
+
+  it("renders editable copy without changing the legacy RSVP API payload", async () => {
     const copy = defaultInvitationContent().rsvp;
     copy.greetingPrefix = "Kính mời";
     copy.attendanceQuestion = "Bạn sẽ đến chung vui chứ?";

@@ -2,11 +2,13 @@ import { z } from "zod";
 
 import { getTrustedProxyClientIp } from "@/lib/client-ip";
 import { getInvitationContent } from "@/lib/invitation-content-store";
-import { submitRsvp } from "@/lib/invitation-service";
+import { getInvitationEventProfiles } from "@/lib/invitation-event-profile-store";
+import { submitInvitationRsvp } from "@/lib/invitation-rsvp-service";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { sqliteInvitationStore } from "@/lib/sqlite-store";
+import { sqliteInvitationRsvpStore } from "@/lib/event-rsvp-store";
 
 const rsvpSchema = z.object({
+  eventScope: z.enum(["oct11", "oct31"]).optional(),
   attendance: z.enum(["attending", "declined"]),
   guestCount: z.number().int().min(0),
   message: z.string().max(500).default(""),
@@ -28,9 +30,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ code
 
   const { code } = await params;
   const content = getInvitationContent();
-  const result = await submitRsvp(code, parsed.data, {
-    store: sqliteInvitationStore,
-    deadline: new Date(content.event.rsvpDeadline),
+  const result = await submitInvitationRsvp(code, parsed.data, {
+    store: sqliteInvitationRsvpStore,
+    eventProfiles: getInvitationEventProfiles(),
+    legacyDeadline: new Date(content.event.rsvpDeadline),
     now: new Date(),
   });
 
