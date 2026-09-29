@@ -14,7 +14,7 @@ const schema = `
     name TEXT NOT NULL,
     max_guests INTEGER NOT NULL CHECK (max_guests >= 1),
     active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
-    event_scope TEXT NOT NULL DEFAULT 'legacy',
+    event_scope TEXT NOT NULL DEFAULT 'legacy' CHECK (event_scope IN ('legacy', 'oct11', 'oct31', 'both')),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -85,6 +85,24 @@ function migrateInvitationEventScopeColumn(connection: SqliteDatabase): void {
   if (!existingColumns.has("event_scope")) connection.exec("ALTER TABLE invitations ADD COLUMN event_scope TEXT NOT NULL DEFAULT 'legacy'");
 }
 
+function enforceInvitationEventScopeValues(connection: SqliteDatabase): void {
+  connection.exec(`
+    CREATE TRIGGER IF NOT EXISTS invitations_event_scope_insert_check
+    BEFORE INSERT ON invitations
+    FOR EACH ROW WHEN NEW.event_scope NOT IN ('legacy', 'oct11', 'oct31', 'both')
+    BEGIN
+      SELECT RAISE(ABORT, 'invalid invitation event_scope');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS invitations_event_scope_update_check
+    BEFORE UPDATE OF event_scope ON invitations
+    FOR EACH ROW WHEN NEW.event_scope NOT IN ('legacy', 'oct11', 'oct31', 'both')
+    BEGIN
+      SELECT RAISE(ABORT, 'invalid invitation event_scope');
+    END;
+  `);
+}
+
 function migrateMediaAssetCropColumns(connection: SqliteDatabase): void {
   const columns = connection.prepare("PRAGMA table_info(media_assets)").all() as Array<{ name: string }>;
   const existingColumns = new Set(columns.map((column) => column.name));
@@ -118,6 +136,7 @@ export function initializeDatabase(): void {
   const connection = getDatabase();
   connection.exec(schema);
   migrateInvitationEventScopeColumn(connection);
+  enforceInvitationEventScopeValues(connection);
   migrateMediaAssetCropColumns(connection);
   migrateAppearanceFontColumn(connection);
   if (process.env.NODE_ENV === "development") {
