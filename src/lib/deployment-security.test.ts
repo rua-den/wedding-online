@@ -24,6 +24,27 @@ describe("production deployment security", () => {
     }
   });
 
+  it("requires CD_ENABLED before automatic production dispatch", () => {
+    const autoDeploy = read(".github/workflows/auto-deploy.yml");
+    expect(autoDeploy).toContain("vars.CD_ENABLED == 'true'");
+    expect(autoDeploy).toContain("github.event.workflow_run.event == 'push'");
+    expect(autoDeploy).toContain("-f deploy_to_vps=true");
+  });
+
+  it("guards persistent SQLite, uploads, and music around activation", () => {
+    const workflow = read(".github/workflows/ci.yml");
+    const verifier = read("deploy/verify-persistent-state.cjs");
+
+    expect(workflow).toContain("verify-persistent-state.cjs snapshot");
+    expect(workflow).toContain("verify-persistent-state.cjs verify");
+    expect(workflow).toContain("EXPECTED_SHARED_DATA");
+    expect(workflow).toContain("EXPECTED_SHARED_UPLOADS");
+    expect(verifier).toContain('db.pragma("integrity_check")');
+    expect(verifier).toContain("snapshot.db.backup(backupPath)");
+    expect(verifier).toContain("row count decreased across deploy");
+    expect(verifier).toContain("music file referenced by SQLite is missing");
+  });
+
   it("keeps client identity headers under the local reverse proxy's control", () => {
     const nginx = read("deploy/nginx-wedding.conf");
     expect(nginx).toContain("proxy_pass http://127.0.0.1:3000");
