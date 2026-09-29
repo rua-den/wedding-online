@@ -115,9 +115,9 @@ export function listAdminInvitationsWithResponses(query = ""): AdminInvitation[]
   const search = `%${query.trim()}%`;
   const rows = database().prepare(`
     WITH responses AS (
-      SELECT invitation_code AS code, attendance, guest_count, updated_at FROM rsvps
+      SELECT invitation_code AS code, 'legacy' AS event_scope, attendance, guest_count, updated_at FROM rsvps
       UNION ALL
-      SELECT invitation_code AS code, attendance, guest_count, updated_at FROM event_rsvps
+      SELECT invitation_code AS code, event_scope, attendance, guest_count, updated_at FROM event_rsvps
     )
     SELECT i.code, i.name, i.max_guests, i.active, i.event_scope, i.created_at, i.updated_at,
            CASE
@@ -128,7 +128,12 @@ export function listAdminInvitationsWithResponses(query = ""): AdminInvitation[]
            CASE WHEN COUNT(r.code) = 0 THEN NULL ELSE COALESCE(SUM(r.guest_count), 0) END AS guest_count,
            MAX(r.updated_at) AS rsvp_updated_at
     FROM invitations i
-    LEFT JOIN responses r ON r.code = i.code
+    LEFT JOIN responses r ON r.code = i.code AND (
+      (i.event_scope = 'legacy' AND r.event_scope = 'legacy') OR
+      (i.event_scope = 'oct11' AND r.event_scope = 'oct11') OR
+      (i.event_scope = 'oct31' AND r.event_scope = 'oct31') OR
+      (i.event_scope = 'both' AND r.event_scope IN ('oct11', 'oct31'))
+    )
     WHERE ? = '%%' OR i.name LIKE ? COLLATE NOCASE OR i.code LIKE ? COLLATE NOCASE
     GROUP BY i.code, i.name, i.max_guests, i.active, i.event_scope, i.created_at, i.updated_at, i.id
     ORDER BY i.created_at DESC, i.id DESC

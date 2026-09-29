@@ -11,7 +11,7 @@ import {
   listAdminRsvpTargets,
 } from "./rsvp-report-store";
 import { closeDatabaseForTests } from "./sqlite";
-import { createAdminInvitation, sqliteInvitationStore } from "./sqlite-store";
+import { createAdminInvitation, sqliteInvitationStore, updateAdminInvitation } from "./sqlite-store";
 
 let directory: string;
 
@@ -70,6 +70,19 @@ describe("RSVP reporting", () => {
 
     expect(listAdminInvitationsWithResponses()).toMatchObject([
       { code: "both", attendance: "attending", guestCount: 3, eventScope: "both" },
+    ]);
+  });
+
+  it("preserves a legacy response but stops counting it after the invitation is reassigned", async () => {
+    createAdminInvitation({ code: "migrated", name: "Khách chuyển ngày", maxGuests: 2 });
+    await sqliteInvitationStore.upsertRsvp({ code: "migrated", name: "Khách chuyển ngày", attendance: "attending", guestCount: 2, message: "Phản hồi cũ" });
+    updateAdminInvitation({ code: "migrated", eventScope: "oct11" });
+
+    expect(listAdminInvitationsWithResponses()).toMatchObject([
+      { code: "migrated", eventScope: "oct11", attendance: null, guestCount: null },
+    ]);
+    expect(listAdminRsvpTargets()).toMatchObject([
+      { code: "migrated", eventScope: "oct11", attendance: null },
     ]);
   });
 
