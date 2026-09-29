@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe("SQLite database", () => {
-  it("creates the invitation and RSVP tables with foreign keys enabled", () => {
+  it("creates legacy and event RSVP tables with foreign keys enabled", () => {
     useTemporaryDatabase();
     initializeDatabase();
 
@@ -30,7 +30,7 @@ describe("SQLite database", () => {
     const invitationColumns = getDatabase().prepare("PRAGMA table_info(invitations)").all() as Array<{ name: string }>;
 
     expect(tables.map((table) => table.name)).toEqual(
-      expect.arrayContaining(["invitations", "rsvps"]),
+      expect.arrayContaining(["invitations", "rsvps", "event_rsvps"]),
     );
     expect(invitationColumns.map((column) => column.name)).toContain("event_scope");
     expect(getDatabase().pragma("foreign_keys", { simple: true })).toBe(1);
@@ -76,6 +76,14 @@ describe("SQLite database", () => {
           "INSERT INTO rsvps (invitation_code, attendance, guest_count, message, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .run("missing", "attending", 1, "", "now", "now"),
+    ).toThrow();
+
+    expect(() =>
+      getDatabase()
+        .prepare(
+          "INSERT INTO event_rsvps (invitation_code, event_scope, attendance, guest_count, message, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run("missing", "oct11", "attending", 1, "", "now", "now"),
     ).toThrow();
   });
 
