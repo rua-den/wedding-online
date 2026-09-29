@@ -5,6 +5,7 @@ import { MusicPlayer } from "@/components/music-player";
 import { PersonalInvitation } from "@/components/personal-invitation";
 import { resolveAppearanceSettings } from "@/lib/appearance-store";
 import { getInvitationContent } from "@/lib/invitation-content-store";
+import { getInvitationEventProfiles } from "@/lib/invitation-event-profile-store";
 import { getInvitation } from "@/lib/invitation-service";
 import { listActiveMedia, toPublicMediaAsset } from "@/lib/media-store";
 import { getMusicSettings } from "@/lib/music-store";
@@ -49,7 +50,12 @@ export default async function PersonalInvitationPage({ params, searchParams }: {
   const appearance = resolveAppearanceSettings({ previewTheme, previewFont });
 
   return <InvitationThemeScope themeId={appearance.themeId} fontId={appearance.fontId}>
-    <PersonalInvitation code={code} media={listActiveMedia().map(toPublicMediaAsset)} content={getInvitationContent()} />
+    <PersonalInvitation
+      code={code}
+      media={listActiveMedia().map(toPublicMediaAsset)}
+      content={getInvitationContent()}
+      eventProfiles={getInvitationEventProfiles()}
+    />
     <MusicPlayer settings={getMusicSettings()} />
   </InvitationThemeScope>;
 }
