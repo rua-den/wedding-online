@@ -35,13 +35,15 @@ describe("production deployment security", () => {
     const workflow = read(".github/workflows/ci.yml");
     const verifier = read("deploy/verify-persistent-state.cjs");
 
-    expect(workflow).toContain("verify-persistent-state.cjs snapshot");
-    expect(workflow).toContain("verify-persistent-state.cjs verify");
+    expect(workflow).toContain('node --env-file=.env verify-persistent-state.cjs "$mode" "$STATE_FILE"');
+    expect(workflow).toContain('verify_persistent_state snapshot "$RELEASE"');
+    expect(workflow).toContain('verify_persistent_state verify "$RELEASE"');
     expect(workflow).toContain("EXPECTED_SHARED_DATA");
     expect(workflow).toContain("EXPECTED_SHARED_UPLOADS");
     expect(verifier).toContain('db.pragma("integrity_check")');
     expect(verifier).toContain("snapshot.db.backup(backupPath)");
     expect(verifier).toContain("row count decreased across deploy");
+    expect(verifier).toContain("persisted upload disappeared across deploy");
     expect(verifier).toContain("music file referenced by SQLite is missing");
   });
 
