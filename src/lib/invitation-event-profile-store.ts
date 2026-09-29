@@ -16,8 +16,6 @@ const profileSchema = z.object({
   eyebrow: requiredText("nhãn buổi lễ", 100),
   title: requiredText("tiêu đề buổi lễ", 220),
   dateTime: isoDate("ngày giờ tổ chức"),
-  dateLabel: requiredText("nhãn ngày tổ chức", 160),
-  timeLabel: requiredText("thời gian buổi lễ", 80),
   rsvpDeadline: isoDate("hạn RSVP"),
   venue: requiredText("tên địa điểm", 160),
   address: requiredText("địa chỉ", 240),
@@ -52,6 +50,15 @@ function localWeddingDate(value: string): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function localWeddingTime(value: string): string {
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
 function expectedDate(scope: DatedInvitationEventScope): string {
   return scope === "oct11" ? "2026-10-11" : "2026-10-31";
 }
@@ -70,7 +77,11 @@ function validateProfile(scope: DatedInvitationEventScope, input: unknown): Invi
   if (new Date(parsed.data.rsvpDeadline).getTime() > new Date(parsed.data.dateTime).getTime()) {
     throw new Error("Hạn RSVP phải trước hoặc đúng thời điểm sự kiện bắt đầu.");
   }
-  return parsed.data;
+  return {
+    ...parsed.data,
+    dateLabel: expectedDateLabel(scope),
+    timeLabel: localWeddingTime(parsed.data.dateTime),
+  };
 }
 
 function readProfile(scope: DatedInvitationEventScope): InvitationEventProfile | null {
