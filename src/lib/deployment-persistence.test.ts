@@ -32,6 +32,7 @@ function fixture() {
   database.prepare("INSERT INTO music_settings (id, enabled, src, title, loop) VALUES (1, 1, '/uploads/song.mp3', 'Song', 1)").run();
   database.close();
   writeFileSync(join(uploads, "song.mp3"), "fake-mp3-for-deploy-state-test");
+  writeFileSync(join(uploads, "photo.jpg"), "fake-image-for-deploy-state-test");
 
   const stateFile = join(root, "state.json");
   const env = {
@@ -66,11 +67,13 @@ describe("production persistent-state verifier", () => {
     const snapshot = JSON.parse(readFileSync(test.stateFile, "utf8")) as {
       backupPath: string;
       counts: Record<string, number>;
+      uploadFiles: string[];
       uploadFileCount: number;
     };
     expect(snapshot.counts.invitations).toBe(1);
     expect(snapshot.counts.music_settings).toBe(1);
-    expect(snapshot.uploadFileCount).toBe(1);
+    expect(snapshot.uploadFiles).toEqual(["photo.jpg", "song.mp3"]);
+    expect(snapshot.uploadFileCount).toBe(2);
     expect(existsSync(snapshot.backupPath)).toBe(true);
     expect(run("verify", test.stateFile, test.env)).toContain("verify OK");
   });
@@ -81,6 +84,14 @@ describe("production persistent-state verifier", () => {
     const database = new BetterSqlite3(test.databasePath);
     database.prepare("DELETE FROM invitations").run();
     database.close();
+    expect(() => run("verify", test.stateFile, test.env)).toThrow();
+  });
+
+  it("fails when a persisted upload is replaced even if file count stays equal", () => {
+    const test = fixture();
+    run("snapshot", test.stateFile, test.env);
+    rmSync(join(test.uploads, "photo.jpg"));
+    writeFileSync(join(test.uploads, "replacement.jpg"), "different-file");
     expect(() => run("verify", test.stateFile, test.env)).toThrow();
   });
 
