@@ -213,6 +213,8 @@ jobs:
             exit 1
           }
           cp deploy/ecosystem-release.cjs release/ecosystem.config.cjs
+          cp deploy/verify-persistent-state.cjs release/verify-persistent-state.cjs
+          node --check release/verify-persistent-state.cjs
           printf '%s\n' "$GITHUB_SHA" > release/REVISION
           tar -C release -czf production-release.tgz .
 
@@ -336,6 +338,7 @@ jobs:
           SHARED="$APP_ROOT/shared"
           RELEASE="$APP_ROOT/releases/$RELEASE_ID"
           ARCHIVE="$APP_ROOT/incoming/$RELEASE_ID.tgz"
+          STATE_FILE="$APP_ROOT/incoming/$RELEASE_ID-persistent-state.json"
 
           health_check() {
             for attempt in $(seq 1 20); do
@@ -345,6 +348,18 @@ jobs:
               sleep 1
             done
             return 1
+          }
+
+          verify_persistent_state() {
+            mode="$1"
+            target="$2"
+            (
+              cd "$target" || exit 1
+              EXPECTED_SHARED_DATA="$SHARED/data" \
+              EXPECTED_SHARED_UPLOADS="$SHARED/uploads" \
+              DEPLOY_RELEASE_ID="$RELEASE_ID" \
+              node --env-file=.env verify-persistent-state.cjs "$mode" "$STATE_FILE"
+            )
           }
 
           start_release() {
@@ -433,7 +448,7 @@ jobs:
           fi
           if [ "$ACTIVE_REVISION" = "$RELEASE_ID" ] && [ -d "$RELEASE" ] && health_check; then
             echo "Release $RELEASE_ID is already healthy; deployment is idempotent."
-            rm -f "$ARCHIVE"
+            rm -f "$ARCHIVE" "$STATE_FILE"
             switch_current "$RELEASE"
             pm2 save
             exit 0
@@ -454,15 +469,24 @@ jobs:
           rm -rf "$RELEASE"
           mv "$STAGING" "$RELEASE"
 
+          if ! verify_persistent_state snapshot "$RELEASE"; then
+            echo "Persistent state preflight failed; existing production process was left untouched."
+            exit 1
+          fi
+
           DEPLOY_OK=0
           if start_release "$RELEASE"; then
             if health_check; then
-              DEPLOY_OK=1
+              if verify_persistent_state verify "$RELEASE"; then
+                DEPLOY_OK=1
+              else
+                echo "Persistent state changed unexpectedly during activation."
+              fi
             fi
           fi
 
           if [ "$DEPLOY_OK" -ne 1 ]; then
-            echo "New release failed activation or health check; rolling back."
+            echo "New release failed activation, health check, or persistent-state verification; rolling back code."
             pm2 logs "$APP_NAME" --lines 80 --nostream || true
             pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -487,7 +511,7 @@ jobs:
             fi
 
             if [ "$ROLLBACK_OK" -eq 1 ]; then
-              echo "Rollback health check passed; production is back on the last-known-good release."
+              echo "Rollback health check passed. The pre-deploy SQLite backup is retained for recovery if state verification failed."
               exit 1
             fi
 
@@ -499,6 +523,7 @@ jobs:
           switch_current "$RELEASE"
           printf '%s\n' "$RELEASE_ID" > "$APP_ROOT/DEPLOYED_REVISION"
           pm2 save
+          rm -f "$STATE_FILE"
 
           ls -1dt "$APP_ROOT"/releases/* 2>/dev/null | tail -n +6 | while IFS= read -r old_release; do
             [ "$old_release" = "$PREVIOUS" ] && continue
@@ -512,9 +537,9 @@ jobs:
           {
             echo "## Production deployment"
             echo
-            echo "✅ Deployed commit \`${GITHUB_SHA:0:7}\` to the VPS after CI, ARM64 standalone smoke test, clean PM2 activation, and localhost health check."
+            echo "✅ Deployed commit \`${GITHUB_SHA:0:7}\` to the VPS after CI, ARM64 standalone smoke test, persistent-state snapshot/backup, clean PM2 activation, localhost health check, and post-activation state verification."
             echo
-            echo "If activation fails, CD now restarts the last-known-good release from its own working directory and requires its rollback health check to pass before reporting the failed deployment."
+            echo "If activation fails, CD restarts the last-known-good release. SQLite integrity, tracked row counts, upload counts, and referenced music files are checked around activation; the pre-deploy SQLite backup is retained on failure."
             echo
             echo "The VPS keeps SQLite, backups, uploads/music, and .env under the persistent shared directory; releases are immutable and the latest five are retained."
           } >> "$GITHUB_STEP_SUMMARY"
