@@ -4,11 +4,14 @@
 
 **English** · [Tiếng Việt](README.vi.md)
 
-A responsive wedding invitation built with Next.js App Router. `/` is the general invitation, while each guest receives a private `/moi/<code>` link with personalized copy and RSVP. Invitations, RSVP responses, editable content, appearance settings, music settings, and media metadata are stored in SQLite.
+A responsive wedding invitation built with Next.js App Router. `/` is the general invitation, while each guest receives a private `/moi/<code>` link with personalized copy and RSVP. Invitations, RSVP responses, editable content, appearance settings, music settings, event profiles, and media metadata are stored in SQLite.
 
 ## Features
 
 - General invitation and personalized guest links with RSVP.
+- Personalized invitation scopes for **11/10/2026**, **31/10/2026**, or both dates while keeping one `/moi/<code>` URL per guest.
+- Independent dated event profiles at `/admin/events`, including per-event RSVP deadlines and fail-closed rendering when required production data is not configured.
+- Independent RSVP targets for two-date guests plus event-aware admin reporting and CSV export.
 - Password-protected admin dashboard.
 - Invitation CRUD, search/filter, RSVP filters, and CSV export.
 - Section-based content editor at `/admin/edit`.
@@ -18,7 +21,7 @@ A responsive wedding invitation built with Next.js App Router. `/` is the genera
 - Media manager plus non-destructive focus/zoom controls for managed media and story milestones.
 - Full-viewport invitation sections with section jump controls.
 - SQLite backup and CSV guest seeding scripts.
-- GitHub Actions CI with unit/lint/build, Playwright E2E, visual smoke summaries, and gated ARM64 VPS CD.
+- GitHub Actions CI with unit/lint/build, Playwright E2E, visual smoke summaries, gated ARM64 VPS CD, and persistent-state verification around production activation.
 
 ## Requirements
 
@@ -66,7 +69,9 @@ Never commit real credentials.
 
 ## Admin areas
 
-`/admin` manages invitation links, RSVP responses, media, and operational actions. `/admin/edit` is the single human-facing content editor. `/admin/appearance` manages the global theme, font, and background music. Theme/font previews are non-persistent until **Save appearance**; the admin UI mirrors the currently selected appearance as well.
+`/admin` manages invitation links, RSVP responses, media, and operational actions. `/admin/events` manages the independent 11/10 and 31/10 event profiles used by dated personalized invitations. `/admin/edit` is the human-facing global invitation content editor. `/admin/appearance` manages the global theme, font, and background music. Theme/font previews are non-persistent until **Save appearance**; the admin UI mirrors the currently selected appearance as well.
+
+Do not invent production event time, venue, address, map URL, RSVP deadline, or event copy just to make dated invitations appear configured. Missing required dated configuration intentionally fails closed.
 
 ## Media and music
 
@@ -97,18 +102,23 @@ GitHub Actions runs unit tests, lint, build, and Playwright Chromium E2E for pus
 
 ## VPS CI/CD
 
-Production is Node.js + PM2 + Nginx on an Oracle ARM64 VPS. CD is intentionally gated by the repository variable `CD_ENABLED`.
+Production is Node.js + PM2 + Nginx on an Oracle ARM64 VPS. Automatic production dispatch is intentionally gated by the repository variable `CD_ENABLED`; a normal merge must not silently deploy while that variable is off.
 
-When enabled, a successful `main` CI run:
+When a production deploy is deliberately enabled/run, the pipeline:
 
-1. rebuilds a Next.js standalone release on GitHub's ARM64 runner;
+1. builds a Next.js standalone release on GitHub's ARM64 runner;
 2. smoke-tests that ARM64 artifact;
 3. uploads it to the VPS over strict-host-key SSH;
-4. switches an immutable `current` release symlink;
-5. reloads PM2;
-6. checks localhost health;
-7. automatically rolls back on health-check failure.
+4. assembles the release with symlinks to persistent `shared/` state;
+5. verifies SQLite/uploads realpaths, SQLite integrity, referenced music, tracked row counts, and the upload filename manifest;
+6. creates a pre-deploy SQLite backup;
+7. starts the new PM2 release and checks localhost health;
+8. re-verifies persistent state after activation;
+9. only then records/switches the successful release;
+10. rolls code back if activation, health, or persistent-state verification fails.
 
-SQLite, `.env`, backups, uploaded images, and music stay under persistent `shared/` storage and are never replaced by a code release. The VPS no longer needs to run `npm ci` or `npm run build` for normal CD deployments.
+SQLite, `.env`, backups, uploaded images, and music stay under persistent `shared/` storage and are not owned by immutable code releases. A pre-deploy backup is retained for deliberate recovery if state verification fails; deployment does not blindly auto-restore shared data.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the one-time shared-storage bootstrap, GitHub `production` environment secrets/variables, first manual deploy, automatic deploy enablement, and rollback instructions.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for shared-storage bootstrap, GitHub `production` environment secrets/variables, manual deploy, automatic deploy enablement, persistence invariants, and rollback/recovery instructions.
+
+For the current coding checkpoint and verified deployment history, read `docs/superpowers/plans/2026-09-30-codex-handoff.md`.
