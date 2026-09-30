@@ -81,7 +81,7 @@ function readMusic(db, uploadsRoot) {
   };
 }
 
-function inspect() {
+function inspect({ readonly = false } = {}) {
   const expectedData = realpathExisting(process.env.EXPECTED_SHARED_DATA, "EXPECTED_SHARED_DATA");
   const expectedUploads = realpathExisting(process.env.EXPECTED_SHARED_UPLOADS, "EXPECTED_SHARED_UPLOADS");
   const configuredDb = path.resolve(process.env.SQLITE_PATH || "data/wedding.sqlite");
@@ -92,7 +92,7 @@ function inspect() {
   if (!isWithin(dbPath, expectedData)) fail(`SQLite database is outside shared data: ${dbPath}`);
   if (uploadsPath !== expectedUploads) fail(`uploads path does not resolve to shared uploads: ${uploadsPath}`);
 
-  const db = new BetterSqlite3(dbPath, { readonly: false, fileMustExist: true });
+  const db = new BetterSqlite3(dbPath, { readonly, fileMustExist: true });
   try {
     const integrityRows = db.pragma("integrity_check");
     const integrity = Array.isArray(integrityRows)
@@ -168,6 +168,34 @@ function assertPreserved(before, after) {
 
 async function main() {
   const [mode, stateFile] = process.argv.slice(2);
+  if (mode === "audit") {
+    if (stateFile) fail("usage: node verify-persistent-state.cjs audit");
+    let snapshot;
+    try {
+      snapshot = inspect({ readonly: true });
+      const configuredBackupDirectory = path.resolve(process.env.SQLITE_BACKUP_DIRECTORY || "data/backups");
+      const backupPath = realpathExisting(configuredBackupDirectory, "SQLite backup directory");
+      const expectedData = realpathExisting(process.env.EXPECTED_SHARED_DATA, "EXPECTED_SHARED_DATA");
+      if (!fs.statSync(backupPath).isDirectory()) fail("SQLite backup path is not a directory");
+      if (!isWithin(backupPath, expectedData)) fail("backup directory is outside shared data");
+      console.log(`[persistent-state] audit OK; paths=shared; backup=shared/data/${path.relative(expectedData, backupPath).split(path.sep).join("/")}; counts=${JSON.stringify(snapshot.counts)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const category = /music/i.test(message)
+        ? "music reference"
+        : /backup/i.test(message)
+          ? "backup path"
+          : /upload|media/i.test(message)
+            ? "uploads path"
+            : /sqlite|database|integrity/i.test(message)
+              ? "SQLite state"
+              : "shared path";
+      fail(`audit failed; ${category} check did not pass`);
+    } finally {
+      snapshot?.db.close();
+    }
+    return;
+  }
   if (!stateFile || !["snapshot", "verify"].includes(mode)) {
     fail("usage: node verify-persistent-state.cjs <snapshot|verify> <state-file>");
   }

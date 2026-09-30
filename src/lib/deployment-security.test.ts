@@ -47,6 +47,39 @@ describe("production deployment security", () => {
     expect(verifier).toContain("music file referenced by SQLite is missing");
   });
 
+  it("limits production readiness audit to opted-in dispatch or the dedicated tag", () => {
+    const workflow = read(".github/workflows/ci.yml");
+    const dispatchInputs = workflow.split("  workflow_dispatch:")[1]?.split("\n\npermissions:")[0] ?? "";
+    const auditJob = workflow.split("  production-readiness:")[1]?.split(/\n  [a-z0-9-]+:/)[0] ?? "";
+    const remoteAudit = auditJob.split("<<'REMOTE_AUDIT'")[1]?.split("REMOTE_AUDIT")[0] ?? "";
+
+    expect(dispatchInputs).toContain("verify_production:");
+    expect(dispatchInputs).toContain("default: false");
+    expect(auditJob).toContain("github.event_name == 'workflow_dispatch'");
+    expect(auditJob).toContain("inputs.verify_production");
+    expect(auditJob).toContain("!inputs.deploy_to_vps");
+    expect(auditJob).not.toContain("github.ref == 'refs/heads/main'");
+    expect(workflow).toContain("tags: [production-readiness/*]");
+    expect(auditJob).toContain("github.event_name == 'push'");
+    expect(auditJob).toContain("startsWith(github.ref, 'refs/tags/production-readiness/')");
+    expect(auditJob).toContain("needs: e2e");
+    expect(auditJob).toContain("environment: production");
+    expect(auditJob).toContain("contents: read");
+    expect(auditJob).toContain("vars.CD_ENABLED");
+    expect(auditJob).toContain('[ "${CD_ENABLED:-}" = "true" ]');
+    expect(auditJob).toContain("exit 1");
+    expect(auditJob).toContain("StrictHostKeyChecking=yes");
+    expect(auditJob).toContain("BatchMode=yes");
+    expect(auditJob).toContain("node --env-file=.env --input-type=commonjs - audit");
+    expect(auditJob).toContain("printf -v root_arg '%q' \"$VPS_APP_ROOT\"");
+    expect(remoteAudit).not.toMatch(/(?:^|\n)\s*pm2\s+[a-z][\w-]*|[;|&($]\s*pm2\s+[a-z][\w-]*/m);
+    expect(remoteAudit).not.toMatch(/\b(?:pm2\s+(?:save|reload|delete|start)|mkdir\s+-p|chmod\s|ln\s+-s|mv\s|cp\s|scp\s|tar\s+-x|sqlite3\s)/);
+    const gateStep = auditJob.split("- name: Check automatic deployment gate")[1]?.split("- name:")[0] ?? "";
+    expect(gateStep).not.toContain("secrets.");
+    expect(workflow).toContain("github.ref == 'refs/heads/main' &&\n      ((github.event_name == 'push' && vars.CD_ENABLED == 'true') ||\n       (github.event_name == 'workflow_dispatch' && inputs.deploy_to_vps))");
+    expect(read(".github/workflows/auto-deploy.yml")).toContain("vars.CD_ENABLED == 'true'");
+  });
+
   it("keeps client identity headers under the local reverse proxy's control", () => {
     const nginx = read("deploy/nginx-wedding.conf");
     expect(nginx).toContain("proxy_pass http://127.0.0.1:3000");

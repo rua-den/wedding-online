@@ -1,6 +1,6 @@
 import BetterSqlite3 from "better-sqlite3";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -47,8 +47,8 @@ function fixture() {
   return { root, data, uploads, backups, databasePath, stateFile, env };
 }
 
-function run(mode: "snapshot" | "verify", stateFile: string, env: NodeJS.ProcessEnv) {
-  return execFileSync(process.execPath, [verifier, mode, stateFile], {
+function run(mode: "snapshot" | "verify" | "audit", stateFile: string, env: NodeJS.ProcessEnv) {
+  return execFileSync(process.execPath, [verifier, mode, ...(mode === "audit" ? [] : [stateFile])], {
     cwd: process.cwd(),
     env,
     encoding: "utf8",
@@ -99,5 +99,101 @@ describe("production persistent-state verifier", () => {
     const test = fixture();
     rmSync(join(test.uploads, "song.mp3"));
     expect(() => run("snapshot", test.stateFile, test.env)).toThrow();
+  });
+
+  it("audits persistent state read-only without requiring a snapshot or creating files", () => {
+    const test = fixture();
+    const before = readdirSync(test.backups);
+
+    const output = run("audit", test.stateFile, test.env);
+
+    expect(output).toContain("audit OK");
+    expect(output).toContain('"invitations":1');
+    expect(output).not.toContain("Song");
+    expect(output).not.toContain("song.mp3");
+    expect(existsSync(test.stateFile)).toBe(false);
+    expect(readdirSync(test.backups)).toEqual(before);
+    expect(readdirSync(test.data).sort()).toEqual(["backups", "wedding.sqlite"]);
+  });
+
+  it("runs the current verifier source from stdin in CommonJS mode like the VPS audit", () => {
+    const test = fixture();
+    const release = join(test.root, "release");
+    mkdirSync(release);
+    symlinkSync(join(process.cwd(), "node_modules"), join(release, "node_modules"), process.platform === "win32" ? "junction" : "dir");
+    writeFileSync(join(release, ".env"), [
+      "SQLITE_PATH=../shared/data/wedding.sqlite",
+      "SQLITE_BACKUP_DIRECTORY=../shared/data/backups",
+      "MEDIA_UPLOAD_DIRECTORY=../shared/uploads",
+      "",
+    ].join("\n"));
+    const env = Object.fromEntries(
+      Object.entries(test.env).filter(([key]) => !["SQLITE_PATH", "SQLITE_BACKUP_DIRECTORY", "MEDIA_UPLOAD_DIRECTORY"].includes(key)),
+    ) as NodeJS.ProcessEnv;
+
+    const output = execFileSync(process.execPath, ["--env-file=.env", "--input-type=commonjs", "-", "audit"], {
+      cwd: release,
+      env,
+      input: readFileSync(verifier),
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    expect(output).toContain("audit OK");
+    expect(existsSync(test.stateFile)).toBe(false);
+    expect(readdirSync(test.backups)).toEqual([]);
+  });
+
+  it.each(["missing-db", "corrupt-db", "missing-music"] as const)("fails a read-only audit for %s", (failure) => {
+    const test = fixture();
+    if (failure === "missing-db") rmSync(test.databasePath);
+    if (failure === "corrupt-db") writeFileSync(test.databasePath, "not a sqlite database");
+    if (failure === "missing-music") rmSync(join(test.uploads, "song.mp3"));
+
+    expect(() => run("audit", test.stateFile, test.env)).toThrow();
+    expect(existsSync(test.stateFile)).toBe(false);
+    expect(readdirSync(test.backups)).toEqual([]);
+  });
+
+  it.each(["missing", "escaped"] as const)("fails a read-only audit when backup directory is %s", (failure) => {
+    const test = fixture();
+    if (failure === "missing") rmSync(test.backups, { recursive: true });
+    else {
+      const outside = join(test.root, "outside-backups");
+      mkdirSync(outside);
+      rmSync(test.backups, { recursive: true });
+      symlinkSync(outside, test.backups, "junction");
+    }
+
+    expect(() => run("audit", test.stateFile, test.env)).toThrow();
+    expect(existsSync(test.stateFile)).toBe(false);
+  });
+
+  it("returns a nonzero process status when read-only audit invariants fail", () => {
+    const test = fixture();
+    rmSync(join(test.uploads, "song.mp3"));
+
+    try {
+      run("audit", test.stateFile, test.env);
+      throw new Error("audit unexpectedly succeeded");
+    } catch (error) {
+      expect(error).toMatchObject({ status: 1 });
+    }
+  });
+
+  it("does not expose music filenames or titles when an audit detects missing music", () => {
+    const test = fixture();
+    rmSync(join(test.uploads, "song.mp3"));
+
+    try {
+      run("audit", test.stateFile, test.env);
+      throw new Error("audit unexpectedly succeeded");
+    } catch (error) {
+      expect(error).toMatchObject({ status: 1 });
+      const diagnostic = String((error as NodeJS.ErrnoException & { stderr?: Buffer }).stderr ?? error);
+      expect(diagnostic).toContain("music reference check did not pass");
+      expect(diagnostic).not.toContain("song.mp3");
+      expect(diagnostic).not.toContain("Song");
+    }
   });
 });

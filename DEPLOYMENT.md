@@ -151,6 +151,16 @@ Có thể thêm required reviewer cho environment `production` nếu muốn mỗ
 
 ## Test deploy lần đầu
 
+### Read-only production readiness audit
+
+Sau khi unit test, lint/build và browser E2E xanh, push một tag duy nhất `production-readiness/<unique-name>` trỏ vào commit đã review để chạy audit trước khi merge. Khi workflow đã có trên default branch, cũng có thể mở **Actions → CI → Run workflow**, bật `verify_production` và để `deploy_to_vps` tắt. Tag này chỉ chọn job readiness; release/deploy vẫn giới hạn ở nhánh `main`. Cả hai entry point đều fail nếu `CD_ENABLED` đúng chính xác bằng `true`, nên audit chỉ chạy khi automatic CD vẫn tắt.
+
+Audit dùng SSH với `BatchMode` và `StrictHostKeyChecking=yes`, kiểm tra topology release/shared, revision, PID metadata hiện có của PM2, identity/parent/cwd của process trong `/proc`, localhost health và listener chỉ bind `127.0.0.1`. Nó đọc `$PM2_HOME` hoặc mặc định `$HOME/.pm2` mà không khởi tạo thư mục, và không gọi PM2 CLI. Verifier được stream vào Node trên VPS, mở SQLite read-only, kiểm tra integrity, nhạc, các realpath và thư mục backup mà không tạo snapshot/backup/state file. Output chỉ gồm revision, PASS và số lượng bảng; không in guest rows, tên file upload/nhạc, tiêu đề nhạc, `.env` hay PM2 environment.
+
+Audit này là một kiểm tra trạng thái tại thời điểm chạy. Nó **không chứng minh manual deployment an toàn hoặc thành công**; trước khi bật automatic CD vẫn cần deliberate manual deploy được verifier pre/post activation xác nhận.
+
+### Manual production deploy
+
 Sau khi bootstrap shared storage và cấu hình secrets/variables, vào **Actions → CI → Run workflow** rồi bật input **deploy_to_vps**.
 
 Manual deploy này vẫn chạy toàn bộ dù `CD_ENABLED` đang tắt, vì đây là hành động deploy chủ động:
