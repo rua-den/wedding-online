@@ -3,11 +3,17 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: [production-readiness/*]
   pull_request:
   workflow_dispatch:
     inputs:
       deploy_to_vps:
         description: Build an ARM64 production release and deploy it after CI passes
+        required: false
+        default: false
+        type: boolean
+      verify_production:
+        description: Run a read-only production readiness audit after CI passes
         required: false
         default: false
         type: boolean
@@ -172,6 +178,110 @@ jobs:
             echo
             echo "Detailed Playwright report/screenshots/traces are uploaded only when E2E fails."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  production-readiness:
+    name: Read-only production readiness audit
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.verify_production && !inputs.deploy_to_vps) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/production-readiness/'))
+    runs-on: ubuntu-latest
+    needs: e2e
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+    env:
+      VPS_PORT: ${{ vars.VPS_PORT || '22' }}
+      VPS_APP_ROOT: ${{ vars.VPS_APP_ROOT }}
+      VPS_APP_PORT: ${{ vars.VPS_APP_PORT || '3000' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Check automatic deployment gate
+        env:
+          CD_ENABLED: ${{ vars.CD_ENABLED }}
+        run: |
+          set -euo pipefail
+          if [ "${CD_ENABLED:-}" = "true" ]; then
+            echo "Production readiness audit requires CD_ENABLED to be off."
+            exit 1
+          fi
+
+      - name: Audit production VPS without mutation
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$VPS_HOST" || { echo "Missing production secret VPS_HOST"; exit 1; }
+          test -n "$VPS_USER" || { echo "Missing production secret VPS_USER"; exit 1; }
+          test -n "$VPS_SSH_PRIVATE_KEY" || { echo "Missing production secret VPS_SSH_PRIVATE_KEY"; exit 1; }
+          test -n "$VPS_KNOWN_HOSTS" || { echo "Missing production secret VPS_KNOWN_HOSTS"; exit 1; }
+          [[ "$VPS_HOST" =~ ^[A-Za-z0-9._:-]+$ ]] || { echo "VPS_HOST contains unsupported characters"; exit 1; }
+          [[ "$VPS_USER" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "VPS_USER contains unsupported characters"; exit 1; }
+          case "$VPS_APP_ROOT" in /*) ;; *) echo "VPS_APP_ROOT must be an absolute path"; exit 1 ;; esac
+          test "$VPS_APP_ROOT" != "/" || { echo "VPS_APP_ROOT cannot be /"; exit 1; }
+          [[ "$VPS_APP_ROOT" != *$'\n'* && "$VPS_APP_ROOT" != *$'\r'* ]] || { echo "VPS_APP_ROOT contains a line break"; exit 1; }
+          for configured_port in "$VPS_PORT" "$VPS_APP_PORT"; do
+            [[ "$configured_port" =~ ^[0-9]{1,5}$ ]] || { echo "Configured ports must be numeric"; exit 1; }
+            (( 10#$configured_port >= 1 && 10#$configured_port <= 65535 )) || { echo "Configured ports must be between 1 and 65535"; exit 1; }
+          done
+
+          umask 077
+          SSH_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SSH_DIR"' EXIT
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$SSH_DIR/id_deploy"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$SSH_DIR/known_hosts"
+          SSH=(ssh -i "$SSH_DIR/id_deploy" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$SSH_DIR/known_hosts")
+          REMOTE="$VPS_USER@$VPS_HOST"
+          printf -v root_arg '%q' "$VPS_APP_ROOT"
+          printf -v port_arg '%q' "$VPS_APP_PORT"
+          "${SSH[@]}" "$REMOTE" "bash -s -- $root_arg $port_arg" <<'REMOTE_AUDIT'
+          set -euo pipefail
+          APP_ROOT_INPUT="$1"
+          APP_PORT="$2"
+          case "$APP_ROOT_INPUT" in /*) ;; *) echo "VPS_APP_ROOT must be absolute"; exit 1 ;; esac
+          [ "$APP_ROOT_INPUT" != "/" ] || { echo "VPS_APP_ROOT cannot be /"; exit 1; }
+          [[ "$APP_PORT" =~ ^[0-9]{1,5}$ ]] || { echo "VPS_APP_PORT must be numeric"; exit 1; }
+          (( 10#$APP_PORT >= 1 && 10#$APP_PORT <= 65535 )) || { echo "VPS_APP_PORT is out of range"; exit 1; }
+          APP_ROOT="$(realpath -e -- "$APP_ROOT_INPUT")"
+          SHARED="$APP_ROOT/shared"
+          CURRENT="$(realpath -e -- "$APP_ROOT/current")"
+          case "$CURRENT" in "$APP_ROOT"/releases/*) ;; *) echo "current does not resolve under releases"; exit 1 ;; esac
+          [[ -d "$CURRENT" ]] || { echo "current release directory is missing"; exit 1; }
+          REVISION="$(tr -d '\r\n' < "$CURRENT/REVISION")"
+          DEPLOYED_REVISION="$(tr -d '\r\n' < "$APP_ROOT/DEPLOYED_REVISION")"
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "Current release REVISION is invalid"; exit 1; }
+          [[ "$DEPLOYED_REVISION" =~ ^[0-9a-f]{40}$ && "$REVISION" = "$DEPLOYED_REVISION" ]] || { echo "DEPLOYED_REVISION does not match current release"; exit 1; }
+          SHARED_REAL="$(realpath -e -- "$SHARED")"
+          [[ "$(realpath -e -- "$CURRENT/.env")" = "$SHARED_REAL/.env" ]] || { echo "Release .env does not resolve to shared .env"; exit 1; }
+          [[ "$(realpath -e -- "$CURRENT/data")" = "$SHARED_REAL/data" ]] || { echo "Release data does not resolve to shared data"; exit 1; }
+          [[ "$(realpath -e -- "$CURRENT/public/uploads")" = "$SHARED_REAL/uploads" ]] || { echo "Release uploads do not resolve to shared uploads"; exit 1; }
+          [[ -d "$SHARED_REAL/data/backups" ]] || { echo "Shared backup directory is missing"; exit 1; }
+          [[ "$(realpath -e -- "$SHARED_REAL/data/backups")" = "$SHARED_REAL/data/backups" ]] || { echo "Shared backup directory path is not canonical"; exit 1; }
+          command -v pm2 >/dev/null && command -v curl >/dev/null && command -v ss >/dev/null || { echo "Required read-only audit commands are unavailable"; exit 1; }
+          PM2_PID="$(pm2 pid huy-nhi-wedding 2>/dev/null | tr -d '\r')"
+          [[ "$PM2_PID" =~ ^[1-9][0-9]*$ && -e "/proc/$PM2_PID/cwd" ]] || { echo "PM2 production process is not running"; exit 1; }
+          [[ "$(readlink -f -- "/proc/$PM2_PID/cwd")" = "$CURRENT" ]] || { echo "PM2 process cwd does not match current release"; exit 1; }
+          LISTENERS="$(ss -ltnH "sport = :$APP_PORT")"
+          [[ -n "$LISTENERS" ]] || { echo "Application has no localhost listener"; exit 1; }
+          while IFS= read -r listener; do
+            local_address="$(awk '{print $4}' <<< "$listener")"
+            [[ "$local_address" = "127.0.0.1:$APP_PORT" ]] || { echo "Application listener is not loopback-only"; exit 1; }
+          done <<< "$LISTENERS"
+          curl --fail --silent --show-error "http://127.0.0.1:$APP_PORT/" >/dev/null || { echo "Localhost health check failed"; exit 1; }
+          printf 'Production topology PASS; revision=%s; listener=127.0.0.1:%s\n' "$REVISION" "$APP_PORT"
+          REMOTE_AUDIT
+
+          printf -v current_arg '%q' "$VPS_APP_ROOT/current"
+          printf -v expected_data_arg '%q' "$VPS_APP_ROOT/shared/data"
+          printf -v expected_uploads_arg '%q' "$VPS_APP_ROOT/shared/uploads"
+          remote_command="cd -- $current_arg && EXPECTED_SHARED_DATA=$expected_data_arg EXPECTED_SHARED_UPLOADS=$expected_uploads_arg node --env-file=.env --input-type=commonjs - audit"
+          "${SSH[@]}" "$REMOTE" "$remote_command" < deploy/verify-persistent-state.cjs
 
   release-arm64:
     name: Build ARM64 production release

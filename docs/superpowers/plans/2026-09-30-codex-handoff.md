@@ -99,4 +99,10 @@ Continue autonomously on the active checkpoint unless one of these is true:
 
 A failed test, lint/build failure, command timeout, connector error, or ambiguous implementation detail is not a stopping condition. Investigate, narrow the failure, fix it, and rerun the smallest useful verification before escalating. Prefer partial verified progress over stopping to ask a question that can be answered from the repository.
 
+## Production readiness audit follow-up — 2026-09-30
+
+The CI workflow now has a separate `verify_production` manual-dispatch input and a dedicated `production-readiness/*` tag trigger for hosts where workflow dispatch is unavailable. Either path runs only after E2E, requires `CD_ENABLED` not to equal `true`, and performs a read-only VPS topology and persistent-state audit with production SSH secrets. The readiness tag can target a reviewed feature-branch commit; release/deploy remain restricted to `main`.
+
+This audit is not proof of a successful manual deployment. Keep automatic CD disabled until a deliberate manual deployment has passed the existing pre/post activation verifier. Latest remote evidence before this audit work: CI #284 passed unit/lint/build/E2E/visual smoke; release/deploy were skipped; Auto-deploy #22 was skipped; CI #275 is the latest Actions-confirmed deployment (`c9aeea`); live VPS state has not yet been verified.
+
 Do not merge a coding change just because a focused test passes. For normal application changes, finish with the relevant focused regressions plus the repository quality gates (`npm test`, `npm run lint`, `npm run build`, and Playwright when user-visible flows changed).
