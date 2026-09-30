@@ -103,6 +103,14 @@ A failed test, lint/build failure, command timeout, connector error, or ambiguou
 
 The CI workflow now has a separate `verify_production` manual-dispatch input and a dedicated `production-readiness/*` tag trigger for hosts where workflow dispatch is unavailable. Either path runs only after E2E, requires `CD_ENABLED` not to equal `true`, and performs a read-only VPS topology and persistent-state audit with production SSH secrets. The readiness tag can target a reviewed feature-branch commit; release/deploy remain restricted to `main`.
 
-This audit is not proof of a successful manual deployment. Keep automatic CD disabled until a deliberate manual deployment has passed the existing pre/post activation verifier. Latest remote evidence before this audit work: CI #284 passed unit/lint/build/E2E/visual smoke; release/deploy were skipped; Auto-deploy #22 was skipped; CI #275 is the latest Actions-confirmed deployment (`c9aeea`); live VPS state has not yet been verified.
+Point-in-time evidence at **2026-09-30 03:25 UTC**:
+
+- PR #10 [CI #285](https://github.com/rua-den/wedding-online/actions/runs/36663719511) passed unit tests, lint, build and E2E.
+- Tag `production-readiness/2026-09-30-ff46a28` [CI #286](https://github.com/rua-den/wedding-online/actions/runs/36663988833) passed all gates and the read-only production audit. ARM64 release/deploy were skipped. The audit confirmed `CD_ENABLED` was not exactly `true`.
+- VPS topology passed at live revision `c9aeea4a164aa72a217d62aa16d802d60489bebb`: `current`, `REVISION`, `DEPLOYED_REVISION`, PM2 cwd and shared `.env`/data/uploads resolved consistently; the app listened only on `127.0.0.1:3000` and localhost health passed. The persistent-state audit passed SQLite integrity and music-reference checks and found the existing `shared/data/backups` directory.
+- Aggregate state counts were invitations 0, RSVPs 0, event RSVPs 0, media assets 11, site settings 1, appearance settings 1, music settings 1, invitation content 1 and event profiles 0. These are counts only; no guest records or private values were exposed.
+- `main` was rechecked at `8844826cd7b0dffe27d86fecd5894803156173b2`.
+
+The audit is a point-in-time read-only check, not proof of a successful manual deployment. Next, integrate the reviewed audit change, then deliberately deploy the tested `main` and pass the existing pre/post activation verifier before enabling automatic CD. Configure dated event profiles only from user-provided facts. Real invitation scopes, browser activation and bulk-assignment readiness have not been proven; dated invitations remain fail-closed.
 
 Do not merge a coding change just because a focused test passes. For normal application changes, finish with the relevant focused regressions plus the repository quality gates (`npm test`, `npm run lint`, `npm run build`, and Playwright when user-visible flows changed).
