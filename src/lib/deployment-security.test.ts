@@ -72,6 +72,7 @@ describe("production deployment security", () => {
     expect(auditJob).toContain("BatchMode=yes");
     expect(auditJob).toContain("node --env-file=.env --input-type=commonjs - audit");
     expect(auditJob).toContain("printf -v root_arg '%q' \"$VPS_APP_ROOT\"");
+    expect(remoteAudit).not.toMatch(/(?:^|\n)\s*pm2\s+[a-z][\w-]*|[;|&($]\s*pm2\s+[a-z][\w-]*/m);
     expect(remoteAudit).not.toMatch(/\b(?:pm2\s+(?:save|reload|delete|start)|mkdir\s+-p|chmod\s|ln\s+-s|mv\s|cp\s|scp\s|tar\s+-x|sqlite3\s)/);
     const gateStep = auditJob.split("- name: Check automatic deployment gate")[1]?.split("- name:")[0] ?? "";
     expect(gateStep).not.toContain("secrets.");

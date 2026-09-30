@@ -113,4 +113,6 @@ Point-in-time evidence at **2026-09-30 03:25 UTC**:
 
 The audit is a point-in-time read-only check, not proof of a successful manual deployment. Next, integrate the reviewed audit change, then deliberately deploy the tested `main` and pass the existing pre/post activation verifier before enabling automatic CD. Configure dated event profiles only from user-provided facts. Real invitation scopes, browser activation and bulk-assignment readiness have not been proven; dated invitations remain fail-closed.
 
+This review fix hardens the audit's PM2 PID lookup to inspect existing `$PM2_HOME` PID files and `/proc` directly. Earlier CI #286 and VPS observations above remain point-in-time evidence for the earlier audit implementation; rerun the readiness tag after this fix passes CI before relying on a fresh audit result.
+
 Do not merge a coding change just because a focused test passes. For normal application changes, finish with the relevant focused regressions plus the repository quality gates (`npm test`, `npm run lint`, `npm run build`, and Playwright when user-visible flows changed).

@@ -263,10 +263,29 @@ jobs:
           [[ "$(realpath -e -- "$CURRENT/public/uploads")" = "$SHARED_REAL/uploads" ]] || { echo "Release uploads do not resolve to shared uploads"; exit 1; }
           [[ -d "$SHARED_REAL/data/backups" ]] || { echo "Shared backup directory is missing"; exit 1; }
           [[ "$(realpath -e -- "$SHARED_REAL/data/backups")" = "$SHARED_REAL/data/backups" ]] || { echo "Shared backup directory path is not canonical"; exit 1; }
-          command -v pm2 >/dev/null && command -v curl >/dev/null && command -v ss >/dev/null || { echo "Required read-only audit commands are unavailable"; exit 1; }
-          PM2_PID="$(pm2 pid huy-nhi-wedding 2>/dev/null | tr -d '\r')"
-          [[ "$PM2_PID" =~ ^[1-9][0-9]*$ && -e "/proc/$PM2_PID/cwd" ]] || { echo "PM2 production process is not running"; exit 1; }
-          [[ "$(readlink -f -- "/proc/$PM2_PID/cwd")" = "$CURRENT" ]] || { echo "PM2 process cwd does not match current release"; exit 1; }
+          command -v curl >/dev/null && command -v ss >/dev/null || { echo "Required read-only audit commands are unavailable"; exit 1; }
+          # Inspect existing PM2 and /proc metadata directly. Do not invoke the PM2 CLI:
+          # its client initializes PM2_HOME and may start a daemon on an unhealthy host.
+          PM2_HOME="${PM2_HOME:-$HOME/.pm2}"
+          PROC_ROOT="/proc"
+          PM2_DAEMON_PID_FILE="$PM2_HOME/pm2.pid"
+          [[ -d "$PM2_HOME" && -f "$PM2_DAEMON_PID_FILE" ]] || { echo "PM2 daemon metadata is missing"; exit 1; }
+          PM2_DAEMON_PID="$(tr -d '\r\n' < "$PM2_DAEMON_PID_FILE")"
+          [[ "$PM2_DAEMON_PID" =~ ^[1-9][0-9]*$ && -d "$PROC_ROOT/$PM2_DAEMON_PID" && -r "$PROC_ROOT/$PM2_DAEMON_PID/cmdline" ]] || { echo "PM2 daemon is not running"; exit 1; }
+          PM2_DAEMON_CMDLINE="$(tr '\0' ' ' < "$PROC_ROOT/$PM2_DAEMON_PID/cmdline")"
+          [[ "$PM2_DAEMON_CMDLINE" =~ PM2[[:space:]]v[^:]+:[[:space:]]God[[:space:]]Daemon || "$PM2_DAEMON_CMDLINE" =~ pm2/lib/Daemon\.js ]] || { echo "PM2 daemon process identity is invalid"; exit 1; }
+          shopt -s nullglob
+          APP_PID_FILES=("$PM2_HOME/pids/huy-nhi-wedding-"*.pid)
+          [[ "${#APP_PID_FILES[@]}" -eq 1 ]] || { echo "PM2 production PID metadata is missing or ambiguous"; exit 1; }
+          APP_PID_FILE_NAME="${APP_PID_FILES[0]##*/}"
+          [[ "$APP_PID_FILE_NAME" =~ ^huy-nhi-wedding-[0-9]+\.pid$ ]] || { echo "PM2 production PID metadata name is invalid"; exit 1; }
+          APP_PID="$(tr -d '\r\n' < "${APP_PID_FILES[0]}")"
+          [[ "$APP_PID" =~ ^[1-9][0-9]*$ && "$APP_PID" != "$PM2_DAEMON_PID" && -d "$PROC_ROOT/$APP_PID" && -r "$PROC_ROOT/$APP_PID/status" && -e "$PROC_ROOT/$APP_PID/cwd" ]] || { echo "PM2 production process is not running"; exit 1; }
+          APP_STATE="$(awk '/^State:/ { print $2 }' "$PROC_ROOT/$APP_PID/status")"
+          [[ -n "$APP_STATE" && "$APP_STATE" != Z && "$APP_STATE" != X ]] || { echo "PM2 production process is not live"; exit 1; }
+          APP_PARENT_PID="$(awk '/^PPid:/ { print $2 }' "$PROC_ROOT/$APP_PID/status")"
+          [[ "$APP_PARENT_PID" = "$PM2_DAEMON_PID" ]] || { echo "PM2 production process parent does not match daemon"; exit 1; }
+          [[ "$(readlink -f -- "$PROC_ROOT/$APP_PID/cwd")" = "$CURRENT" ]] || { echo "PM2 process cwd does not match current release"; exit 1; }
           LISTENERS="$(ss -ltnH "sport = :$APP_PORT")"
           [[ -n "$LISTENERS" ]] || { echo "Application has no localhost listener"; exit 1; }
           while IFS= read -r listener; do
