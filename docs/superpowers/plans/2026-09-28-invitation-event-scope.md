@@ -64,11 +64,11 @@ The implementation uses a dedicated `invitation_event_profiles` store instead of
 - [x] Ignore preserved legacy responses after an invitation is reassigned to a dated scope instead of reinterpreting them.
 - [x] Cascade event RSVP deletion with invitation deletion while surfacing that RSVP data existed.
 
-C1 and C2 were squash-merged to `main` as `97238c86db33dec0813217d8965b9126b7f0542d`. Main CI #269 passed unit tests, lint, production build, Playwright E2E and visual smoke. Production release/deploy remained disabled and was skipped.
+C1 and C2 were squash-merged to `main` as `97238c86db33dec0813217d8965b9126b7f0542d`. Main CI #269 passed unit tests, lint, production build, Playwright E2E and visual smoke. Production release/deploy remained disabled and was skipped for that merge.
 
 ### D. Production-activation hardening — COMPLETE
 
-A post-merge review found activation-safety gaps that needed to be closed before entering real wedding data. PR #7 addresses them without modifying production data.
+A post-merge review found activation-safety gaps that needed to be closed before entering real wedding data. They were fixed without inventing or modifying real event data.
 
 - [x] Derive visible `dateLabel` and `timeLabel` from trusted `scope + dateTime`; admin-entered display text can no longer contradict the real event time.
 - [x] Start unconfigured dated profiles with blank event-specific business data instead of cloning the legacy/global event's title, venue, address or map.
@@ -77,7 +77,27 @@ A post-merge review found activation-safety gaps that needed to be closed before
 - [x] Clarify dashboard summary labels so invitation-link counts are not confused with per-event RSVP-target counts.
 - [x] Add browser E2E for: configure 11/10 + 31/10 → create a `both` invitation → render both event cards → submit two independent RSVPs → verify two admin response rows.
 
-Runtime hardening code at `77022cef6bd8f1a3a1a6aa00f184f402debd42ff` passed CI #272: unit tests, lint, production build and the full Playwright suite including the new dated-invitation flow. This documentation update does not change runtime behavior; the PR still requires exact-head CI before merge.
+This hardening was squash-merged to `main` as `c9aeea4a164aa72a217d62aa16d802d60489bebb` (`fix: harden dated invitation activation`). A deliberate workflow-dispatch CI #275 passed unit/lint/build, Playwright, ARM64 release assembly/smoke, and **successfully deployed `c9aeea` to the production VPS** according to GitHub Actions.
+
+### E. Deployment persistent-state invariants — COMPLETE
+
+After the first deliberate dated-invitation deployment, deployment persistence was hardened so future code releases cannot silently replace or regress wedding runtime state.
+
+- [x] Gate automatic production dispatch on repository variable `CD_ENABLED == 'true'`.
+- [x] Package a standalone persistent-state verifier with the ARM64 release.
+- [x] Before process replacement, require SQLite and uploads to resolve into shared persistent storage.
+- [x] Run SQLite `PRAGMA integrity_check` before activation.
+- [x] Validate that any configured background music file still exists under shared uploads.
+- [x] Snapshot tracked table row counts and the full upload filename manifest.
+- [x] Create a `pre-deploy-*.sqlite` backup in shared backup storage before activation.
+- [x] Re-run persistent-state verification after the new release passes localhost health check.
+- [x] Fail deployment and roll code back if tracked rows decrease, a pre-existing upload filename disappears, persistent paths change, or referenced music disappears.
+- [x] Add behavioral regressions for unchanged state, row loss, missing music, and upload replacement with unchanged file count.
+- [x] Document that rollback code does not automatically restore shared data; the retained backup exists for deliberate recovery.
+
+This hardening was squash-merged to `main` as `37695db0137331c6fadce0e6886abd4d0c41f62e` (`fix: protect persistent state during production deploy`). Exact post-merge CI #282 passed unit tests, lint, production build, Playwright E2E, and visual smoke. ARM64 release and production deployment were skipped. `Auto deploy production` run #21 completed as **skipped**, proving that the merge did not silently dispatch production while `CD_ENABLED` was off.
+
+`37695db` has therefore **not** been deployed by that merge. The last GitHub-Actions-confirmed successful production deploy is `c9aeea` via CI #275; verify the VPS before relying on that as the live revision because manual/out-of-band changes are possible.
 
 ## Verification
 
@@ -91,21 +111,25 @@ Verified behavior now includes:
 - one personalized URL with correct rendering for `oct11`, `oct31` and `both`;
 - one RSVP per invited event with server-side scope authorization and per-event deadlines;
 - event-aware admin reporting/export without reinterpreting stale legacy RSVP data;
-- end-to-end browser coverage of the complete `both` workflow.
+- end-to-end browser coverage of the complete `both` workflow;
+- gated automatic CD plus pre/post activation SQLite/uploads/music invariants.
 
 ## Production activation checklist
 
-Code readiness and wedding-data readiness are separate gates. Even after the hardening PR is merged, dated invitations should not be distributed until:
+Code readiness and wedding-data readiness are separate gates. Dated invitations should not be distributed broadly until:
 
 1. `/admin/events` has complete, verified profiles for both dates that will be used.
 2. Existing `legacy` guests are explicitly assigned to `oct11`, `oct31` or `both` where appropriate.
 3. A preview link from each scope is manually opened and checked for date, time, venue, map and RSVP deadline.
 4. `both` is verified with two event cards and two independent RSVP forms.
-5. Production deployment is deliberately enabled/run; merging code alone must not be treated as activation.
+5. Current VPS revision and shared-storage topology are verified before the next deliberate deploy.
+6. The first deploy containing `37695db` or later is run deliberately with the new persistent-state verifier and confirmed green before automatic CD is enabled.
+
+Do not fabricate missing business data in code merely to make this checklist look complete.
 
 ## Repository safety follow-up
 
-`main` was observed without branch protection during the post-merge review. Production CD remains disabled, so this does not block merging the hardening code, but branch protection / required CI should be enabled before automatic CD is turned on. This is a repository setting, not an application-code change.
+`main` was observed without branch protection during the review. Automatic CD is currently gated off, so this does not block normal development, but branch protection / required CI should be enabled before automatic CD is turned on. This is a repository setting, not an application-code change.
 
 ## Non-goals
 
@@ -114,3 +138,4 @@ Code readiness and wedding-data readiness are separate gates. Even after the har
 - No destructive rewrite of current RSVP rows.
 - No hard-coded guest-name heuristics.
 - No automatic cloning of the current global event into 11/10 or 31/10 production profiles.
+- No code-release mechanism that owns or replaces persistent wedding data.
