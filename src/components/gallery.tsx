@@ -77,7 +77,7 @@ export function Gallery({ assets }: { assets: PublicMediaAsset[] }) {
       <button ref={closeButtonRef} className="gallery-close" type="button" aria-label="Đóng ảnh" onClick={closeLightbox}>×</button>
       <button className="gallery-arrow gallery-arrow-prev" type="button" aria-label="Ảnh trước" onClick={(event) => { event.stopPropagation(); setSelected((current) => current === null ? null : (current - 1 + assets.length) % assets.length); }}>‹</button>
       <div className="gallery-lightbox-frame-shell" onClick={(event) => event.stopPropagation()}>
-        <MediaFrame asset={active} className="gallery-lightbox-frame media-frame-slot-gallery" imageClassName="gallery-lightbox-image" alt={active.alt} />
+        <MediaFrame asset={active} className="gallery-lightbox-frame media-frame-slot-gallery" imageClassName="gallery-lightbox-image" alt={active.alt} sizes="92vw" />
       </div>
       <button className="gallery-arrow gallery-arrow-next" type="button" aria-label="Ảnh tiếp theo" onClick={(event) => { event.stopPropagation(); setSelected((current) => current === null ? null : (current + 1) % assets.length); }}>›</button>
       <span className="gallery-count">{(selected ?? 0) + 1} / {assets.length}</span>

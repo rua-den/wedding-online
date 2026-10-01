@@ -33,7 +33,13 @@ const personalizedInvitationHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  poweredByHeader: false,
   serverExternalPackages: ["better-sqlite3"],
+  images: {
+    minimumCacheTTL: 2_592_000,
+    deviceSizes: [360, 480, 640, 768, 1024, 1280, 1536, 1920],
+    imageSizes: [96, 160, 240, 320],
+  },
   env: {
     NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version ?? "0.1.0",
     NEXT_PUBLIC_BUILD_SHA: process.env.GITHUB_SHA ?? "local",

@@ -1,14 +1,26 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const root = process.cwd();
 const standalone = join(root, ".next", "standalone");
 const sqlitePackage = join(standalone, "node_modules", "better-sqlite3", "package.json");
+const sharpPackage = join(standalone, "node_modules", "sharp", "package.json");
 
 if (!existsSync(sqlitePackage)) {
   throw new Error("Standalone output is missing better-sqlite3; production would fail after deployment.");
+}
+if (!existsSync(sharpPackage)) {
+  throw new Error("Standalone output is missing sharp; responsive production images would fail after deployment.");
+}
+
+const nativeProbe = spawnSync(process.execPath, ["-e", "require('better-sqlite3'); require('sharp')"], {
+  cwd: standalone,
+  encoding: "utf8",
+});
+if (nativeProbe.status !== 0) {
+  throw new Error(`Standalone native dependency probe failed.\n${nativeProbe.stdout}\n${nativeProbe.stderr}`);
 }
 
 const tempRoot = mkdtempSync(join(tmpdir(), "wedding-standalone-"));
@@ -77,7 +89,7 @@ try {
     throw new Error(`Isolated standalone smoke test failed.\n${output}`);
   }
 
-  console.log("Isolated standalone smoke test passed.");
+  console.log("Isolated standalone smoke test passed with sharp and better-sqlite3 available.");
 } finally {
   if (child && child.exitCode === null) child.kill("SIGTERM");
   rmSync(tempRoot, { recursive: true, force: true });

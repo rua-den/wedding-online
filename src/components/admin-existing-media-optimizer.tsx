@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   formatImageMegabytes,
@@ -8,8 +8,19 @@ import {
   type ImageUploadPurpose,
 } from "@/lib/client-image-optimize";
 import type { MediaAsset, MediaSlot } from "@/lib/media-store";
+import type { LoveStoryMilestoneContent } from "@/types/invitation-content";
 
-type MediaResponse = { asset?: MediaAsset; message?: string; ok?: boolean };
+type MediaResponse = {
+  asset?: MediaAsset;
+  milestone?: LoveStoryMilestoneContent;
+  src?: string | null;
+  message?: string;
+  ok?: boolean;
+};
+
+type OptimizationTarget =
+  | { kind: "media"; asset: MediaAsset }
+  | { kind: "story"; index: number; milestone: LoveStoryMilestoneContent };
 
 function purposeForSlot(slot: MediaSlot): ImageUploadPurpose {
   if (slot === "groom" || slot === "bride") return "portrait";
@@ -24,18 +35,36 @@ function extensionForType(type: string): string {
   return "webp";
 }
 
+function targetLabel(target: OptimizationTarget): string {
+  if (target.kind === "media") return target.asset.alt || target.asset.slot;
+  return `Mốc chuyện tình ${target.index + 1}: ${target.milestone.title}`;
+}
+
 async function responseBody(response: Response): Promise<MediaResponse | null> {
   return await response.json().catch(() => null) as MediaResponse | null;
 }
 
-export function AdminExistingMediaOptimizer({ initialAssets }: { initialAssets: MediaAsset[] }) {
+export function AdminExistingMediaOptimizer({
+  initialAssets,
+  initialMilestones = [],
+}: {
+  initialAssets: MediaAsset[];
+  initialMilestones?: LoveStoryMilestoneContent[];
+}) {
   const [assets, setAssets] = useState(initialAssets);
+  const [milestones, setMilestones] = useState(initialMilestones);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const activeAssets = assets.filter((asset) => asset.active);
+  const targets = useMemo<OptimizationTarget[]>(() => [
+    ...activeAssets.map((asset): OptimizationTarget => ({ kind: "media", asset })),
+    ...milestones.flatMap((milestone, index): OptimizationTarget[] =>
+      milestone.imageSrc ? [{ kind: "story", index, milestone }] : [],
+    ),
+  ], [activeAssets, milestones]);
 
   async function optimize() {
-    if (busy || activeAssets.length === 0) return;
+    if (busy || targets.length === 0) return;
     setBusy(true);
     setStatus("");
 
@@ -45,59 +74,76 @@ export function AdminExistingMediaOptimizer({ initialAssets }: { initialAssets: 
     const failures: string[] = [];
 
     try {
-      for (let index = 0; index < activeAssets.length; index += 1) {
-        const asset = activeAssets[index]!;
-        const label = asset.alt || asset.slot;
-        setStatus(`Đang kiểm tra ảnh ${index + 1}/${activeAssets.length}: ${label}…`);
+      for (let index = 0; index < targets.length; index += 1) {
+        const target = targets[index]!;
+        const label = targetLabel(target);
+        setStatus(`Đang kiểm tra ảnh ${index + 1}/${targets.length}: ${label}…`);
 
         try {
-          const sourceResponse = await fetch(`/api/admin/media/optimize?id=${asset.id}`, { cache: "no-store" });
+          const sourceUrl = target.kind === "media"
+            ? `/api/admin/media/optimize?id=${target.asset.id}`
+            : `/api/admin/content/image/optimize?index=${target.index}`;
+          const sourceResponse = await fetch(sourceUrl, { cache: "no-store" });
           if (!sourceResponse.ok) {
-            const body = await responseBody(sourceResponse);
-            throw new Error(body?.message ?? `Không thể đọc ảnh hiện tại: ${label}.`);
+            const sourceBody = await responseBody(sourceResponse);
+            throw new Error(sourceBody?.message ?? `Không thể đọc ảnh hiện tại: ${label}.`);
           }
           const sourceBlob = await sourceResponse.blob();
           if (!sourceBlob.type.startsWith("image/")) throw new Error(`Tệp ${label} không còn là ảnh hợp lệ.`);
 
           const sourceFile = new File(
             [sourceBlob],
-            `existing-${asset.id}.${extensionForType(sourceBlob.type)}`,
+            `existing-${target.kind === "media" ? target.asset.id : `story-${target.index}`}.${extensionForType(sourceBlob.type)}`,
             { type: sourceBlob.type },
           );
-          const prepared = await prepareImageForUpload(sourceFile, purposeForSlot(asset.slot));
+          const purpose = target.kind === "media" ? purposeForSlot(target.asset.slot) : "story";
+          const prepared = await prepareImageForUpload(sourceFile, purpose);
           if (!prepared.optimized) {
             skippedCount += 1;
             continue;
           }
 
           const form = new FormData();
-          form.set("id", String(asset.id));
           form.set("file", prepared.file);
-          const replaceResponse = await fetch("/api/admin/media/optimize", { method: "POST", body: form });
-          const replaceBody = await responseBody(replaceResponse);
-          if (!replaceResponse.ok || !replaceBody?.asset) {
-            throw new Error(replaceBody?.message ?? `Không thể lưu bản tối ưu của ${label}.`);
+          if (target.kind === "media") {
+            form.set("id", String(target.asset.id));
+          } else {
+            form.set("index", String(target.index));
+          }
+          const replacementUrl = target.kind === "media"
+            ? "/api/admin/media/optimize"
+            : "/api/admin/content/image/optimize";
+          const replacementResponse = await fetch(replacementUrl, { method: "POST", body: form });
+          const replacementBody = await responseBody(replacementResponse);
+          if (!replacementResponse.ok) {
+            throw new Error(replacementBody?.message ?? `Không thể lưu bản tối ưu của ${label}.`);
           }
 
-          const replacement = replaceBody.asset;
+          if (target.kind === "media") {
+            if (!replacementBody?.asset) throw new Error(`Không thể đọc bản tối ưu của ${label}.`);
+            const replacement = replacementBody.asset;
+            setAssets((current) => current.map((asset) => asset.id === replacement.id ? replacement : asset));
+          } else {
+            if (!replacementBody?.milestone) throw new Error(`Không thể đọc bản tối ưu của ${label}.`);
+            const replacement = replacementBody.milestone;
+            setMilestones((current) => current.map((milestone, milestoneIndex) =>
+              milestoneIndex === target.index ? replacement : milestone,
+            ));
+          }
+
           optimizedCount += 1;
           savedBytes += Math.max(0, sourceBlob.size - prepared.file.size);
-          setAssets((current) => current.map((item) => item.id === replacement.id ? replacement : item));
         } catch (error) {
-          failures.push(`${label}: ${error instanceof Error ? error.message : "không thể tối ưu"}`);
+          failures.push(`${label}: ${error instanceof Error ? error.message : "Không thể tối ưu."}`);
         }
       }
 
-      if (failures.length > 0) {
-        setStatus(
-          `Đã tối ưu ${optimizedCount} ảnh, giữ nguyên ${skippedCount} ảnh, giảm khoảng ${formatImageMegabytes(savedBytes)} MB. `
-          + `${failures.length} ảnh chưa xử lý được; có thể chạy lại an toàn. ${failures.slice(0, 2).join(" · ")}`,
-        );
-      } else if (optimizedCount > 0) {
-        setStatus(`Xong: tối ưu ${optimizedCount} ảnh, giữ nguyên ${skippedCount} ảnh đã nhẹ, giảm khoảng ${formatImageMegabytes(savedBytes)} MB.`);
-      } else {
-        setStatus(`Không cần đổi: ${skippedCount} ảnh hiện tại đã nằm trong mức tối ưu cho web.`);
-      }
+      const summary = optimizedCount > 0
+        ? `Xong: tối ưu ${optimizedCount} ảnh, giữ nguyên ${skippedCount} ảnh đã nhẹ, giảm khoảng ${formatImageMegabytes(savedBytes)} MB.`
+        : `Không cần đổi: ${skippedCount} ảnh hiện tại đã nằm trong mức tối ưu cho web.`;
+      setStatus(failures.length > 0
+        ? `${summary} Có ${failures.length} ảnh lỗi; có thể bấm chạy lại an toàn. ${failures.slice(0, 2).join(" · ")}`
+        : summary);
     } finally {
       setBusy(false);
     }
@@ -109,14 +155,14 @@ export function AdminExistingMediaOptimizer({ initialAssets }: { initialAssets: 
         <p className="eyebrow">Hiệu năng ảnh</p>
         <h1 id="existing-media-optimizer-title">Tối ưu ảnh đang dùng</h1>
       </div>
-      <span className="admin-media-count">{activeAssets.length} ảnh đang hoạt động</span>
+      <span className="admin-media-count">{targets.length} ảnh đang hoạt động</span>
     </div>
     <p>
-      Công cụ này chạy trên các ảnh đang hiển thị: ảnh nặng sẽ được resize và chuyển WebP ngay trên cùng bản ghi,
-      nên giữ nguyên vị trí crop/focus, trạng thái và thứ tự gallery. Có thể chạy lại an toàn nếu một ảnh lỗi giữa chừng.
+      Công cụ này kiểm tra cả ảnh trên thiệp và ảnh từng mốc chuyện tình. Ảnh nặng sẽ được resize và chuyển WebP;
+      media giữ nguyên ID/crop/thứ tự, mốc chuyện tình giữ nguyên nội dung/crop/vị trí. Ảnh đã đủ nhẹ sẽ được bỏ qua.
     </p>
     <div className="admin-actions">
-      <button className="admin-primary-button" type="button" disabled={busy || activeAssets.length === 0} onClick={() => void optimize()}>
+      <button className="admin-primary-button" type="button" disabled={busy || targets.length === 0} onClick={() => void optimize()}>
         {busy ? "Đang tối ưu…" : "Tối ưu toàn bộ ảnh hiện tại"}
       </button>
       <a className="admin-secondary-button" href="/" target="_blank" rel="noreferrer">Mở thiệp để kiểm tra ↗</a>

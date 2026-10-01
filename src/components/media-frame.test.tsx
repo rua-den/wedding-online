@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { MediaAsset } from "@/lib/media-store";
-import { MediaFrame, mediaFrameStyle } from "./media-frame";
+import { MediaFrame, mediaFrameSizes, mediaFrameStyle } from "./media-frame";
 
 const asset: MediaAsset = {
   id: 1,
@@ -31,7 +31,13 @@ describe("MediaFrame", () => {
     });
   });
 
-  it("renders a cover image using the persisted crop values without the optional Next image optimizer", () => {
+  it("uses slot-aware responsive size hints", () => {
+    expect(mediaFrameSizes("hero")).toBe("100vw");
+    expect(mediaFrameSizes("groom")).toContain("38vw");
+    expect(mediaFrameSizes("gallery")).toContain("46vw");
+  });
+
+  it("renders a cover image through the Next image optimizer while preserving crop", () => {
     render(<MediaFrame asset={{ ...asset, focusX: 20, focusY: 70, zoom: 1.5 }} />);
 
     const image = screen.getByRole("img");
@@ -39,7 +45,11 @@ describe("MediaFrame", () => {
       objectPosition: "20% 70%",
       transform: "scale(1.5)",
     });
-    expect(new URL(image.getAttribute("src")!, "http://localhost").pathname).toBe(asset.src);
+    expect(image).toHaveAttribute("sizes", "100vw");
+    const src = new URL(image.getAttribute("src")!, "http://localhost");
+    expect(src.pathname).toBe("/_next/image");
+    expect(src.searchParams.get("url")).toBe(asset.src);
+    expect(image.getAttribute("srcset")).toContain("/_next/image");
   });
 
   it("renders a slot-specific fallback after an image load error", () => {
@@ -59,6 +69,6 @@ describe("MediaFrame", () => {
 
     fireEvent.error(screen.getByRole("img", { name: "Chú rể" }));
 
-    expect(screen.getByRole("img", { name: "Chú rể không thể tải" })).toHaveTextContent("H");
+    expect(screen.getByRole("img", { name: "Ảnh chú rể không thể tải" })).toHaveTextContent("H");
   });
 });
