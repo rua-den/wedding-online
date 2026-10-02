@@ -89,6 +89,20 @@ describe("invitation content store", () => {
     expect(contentRow()?.schema_version).toBe(CURRENT_INVITATION_CONTENT_SCHEMA_VERSION);
   });
 
+  it("persists and reloads a canonical uploaded QR source", () => {
+    const content = defaultInvitationContent();
+    content.gift.qrImageSrc = "/uploads/1788039145650-f2a49997-39dd-4e53-878c-3cb63437fefe.png";
+    updateInvitationContent(content);
+    closeDatabaseForTests();
+    expect(getInvitationContent().gift.qrImageSrc).toBe(content.gift.qrImageSrc);
+  });
+
+  it.each(["https://example.com/qr.png", "/uploads/qr.png"])("rejects noncanonical QR source %s", (qrImageSrc) => {
+    const content = defaultInvitationContent();
+    content.gift.qrImageSrc = qrImageSrc;
+    expect(() => updateInvitationContent(content)).toThrow("Ảnh mã QR không hợp lệ");
+  });
+
   it("advances a migrated legacy row only when it is saved", () => {
     getInvitationContent();
     const legacy = defaultInvitationContent() as unknown as Record<string, unknown>;

@@ -7,8 +7,11 @@ import type { InvitationContent } from "@/types/invitation-content";
 
 export const dynamic = "force-dynamic";
 
-function milestoneImages(content: InvitationContent): Set<string> {
-  return new Set(content.story.milestones.flatMap((milestone) => milestone.imageSrc ? [milestone.imageSrc] : []));
+function contentOwnedImages(content: InvitationContent): Set<string> {
+  return new Set([
+    ...content.story.milestones.flatMap((milestone) => milestone.imageSrc ? [milestone.imageSrc] : []),
+    ...(content.gift.qrImageSrc ? [content.gift.qrImageSrc] : []),
+  ]);
 }
 
 export async function GET(request: Request) {
@@ -28,9 +31,9 @@ export async function PUT(request: Request) {
   try {
     const before = getInvitationContent();
     const content = updateInvitationContent(body);
-    const retained = milestoneImages(content);
+    const retained = contentOwnedImages(content);
     const protectedMedia = new Set(listAdminMedia().map((asset) => asset.src));
-    const staleImages = [...milestoneImages(before)].filter((src) => !retained.has(src) && !protectedMedia.has(src));
+    const staleImages = [...contentOwnedImages(before)].filter((src) => !retained.has(src) && !protectedMedia.has(src));
     await Promise.allSettled(staleImages.map((src) => removeMediaFile(src)));
     await pruneOrphanUploads().catch((error) => console.warn("Upload prune skipped after content save:", error instanceof Error ? error.message : error));
     return noStoreJson({ content });

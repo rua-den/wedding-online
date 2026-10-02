@@ -52,7 +52,8 @@ for (const viewport of [
       { from: "#doi-uyen-uong", label: "Đi tới chuyện tình", to: "#chuyen-tinh" },
       { from: "#chuyen-tinh", label: "Đi tới thông tin lễ cưới", to: "#le-cuoi" },
       { from: "#le-cuoi", label: "Đi tới album ảnh cưới", to: "#album-anh" },
-      { from: "#album-anh", label: "Đi tới lời cảm ơn", to: "#loi-cam-on" },
+      { from: "#album-anh", label: "Đi tới gửi tiền mừng", to: "#gui-tien-mung" },
+      { from: "#gui-tien-mung", label: "Đi tới lời cảm ơn", to: "#loi-cam-on" },
     ]) {
       const source = page.locator(step.from);
       const jumpButton = source.getByRole("button", { name: step.label });
@@ -83,7 +84,9 @@ test("personal invitation opens from a full-screen guest cover into the wedding 
 
   const gallerySection = page.locator("#album-anh");
   await gallerySection.scrollIntoViewIfNeeded();
-  await gallerySection.getByRole("button", { name: "Đi tới xác nhận tham dự" }).click();
+  await gallerySection.getByRole("button", { name: "Đi tới gửi tiền mừng" }).click();
+  await expect(page.locator("#gui-tien-mung")).toBeInViewport();
+  await page.locator("#gui-tien-mung").getByRole("button", { name: "Đi tới xác nhận tham dự" }).click();
   const rsvpSection = page.locator("#xac-nhan-tham-du");
   await expect(rsvpSection).toBeInViewport();
   await rsvpSection.getByRole("button", { name: "Đi tới lời cảm ơn" }).click();

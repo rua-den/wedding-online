@@ -27,8 +27,16 @@ function fixture() {
       title TEXT NOT NULL,
       loop INTEGER NOT NULL
     );
+    CREATE TABLE gift_wishes (
+      id INTEGER PRIMARY KEY,
+      invitation_code TEXT,
+      name TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
   `);
   database.prepare("INSERT INTO invitations (code) VALUES (?)").run("guest-a");
+  database.prepare("INSERT INTO gift_wishes (name, message, created_at) VALUES (?, ?, ?)").run("Mai", "Chúc mừng", new Date().toISOString());
   database.prepare("INSERT INTO music_settings (id, enabled, src, title, loop) VALUES (1, 1, '/uploads/song.mp3', 'Song', 1)").run();
   database.close();
   writeFileSync(join(uploads, "song.mp3"), "fake-mp3-for-deploy-state-test");
@@ -83,6 +91,15 @@ describe("production persistent-state verifier", () => {
     run("snapshot", test.stateFile, test.env);
     const database = new BetterSqlite3(test.databasePath);
     database.prepare("DELETE FROM invitations").run();
+    database.close();
+    expect(() => run("verify", test.stateFile, test.env)).toThrow();
+  });
+
+  it("fails when persisted gift wishes disappear during deploy", () => {
+    const test = fixture();
+    run("snapshot", test.stateFile, test.env);
+    const database = new BetterSqlite3(test.databasePath);
+    database.prepare("DELETE FROM gift_wishes").run();
     database.close();
     expect(() => run("verify", test.stateFile, test.env)).toThrow();
   });

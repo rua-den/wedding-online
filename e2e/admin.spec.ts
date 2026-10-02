@@ -51,8 +51,8 @@ test("both-date invitation renders and records one RSVP per configured event", a
     const panel = page.locator("section.admin-panel").filter({ has: page.getByRole("heading", { name: label }) });
     await panel.getByLabel("Eyebrow").fill("Trân trọng kính mời");
     await panel.getByLabel("Tiêu đề").fill(values.title);
-    await panel.getByLabel("Ngày giờ ISO").fill(values.dateTime);
-    await panel.getByLabel("Hạn RSVP ISO").fill(values.deadline);
+    await panel.getByLabel("Ngày giờ").fill(values.dateTime.slice(0, 16));
+    await panel.getByLabel("Hạn RSVP").fill(values.deadline.slice(0, 16));
     await panel.getByLabel("Tên địa điểm").fill(values.venue);
     await panel.getByLabel("Địa chỉ").fill(values.address);
     await panel.getByLabel("Google Maps URL").fill(values.mapsUrl);

@@ -16,6 +16,7 @@ const text = (label: string, max: number) => z.string().trim().min(1, `Vui lòng
 const isoDate = (label: string) => text(label, 80).refine((value) => !Number.isNaN(new Date(value).getTime()), `${label} không hợp lệ.`);
 const fontScale = z.number().finite().min(MIN_TEXT_SCALE).max(MAX_TEXT_SCALE);
 const milestoneImage = z.string().trim().refine((value) => canonicalUploadFilename(value) !== null, "Ảnh mốc chuyện tình không hợp lệ.").nullable().optional().default(null);
+const giftImage = z.string().trim().refine((value) => canonicalUploadFilename(value) !== null, "Ảnh mã QR không hợp lệ.").nullable().default(null);
 const milestoneSchema = z.object({
   date: text("mốc thời gian", 120),
   title: text("tiêu đề câu chuyện", 160),
@@ -43,6 +44,7 @@ export const invitationContentSchema: z.ZodType<InvitationContent> = z.object({
     eyebrow: text("nhãn buổi lễ", 100), title: text("tiêu đề buổi lễ", 220), dateTime: isoDate("ngày giờ tổ chức"), dateLabel: text("nhãn ngày tổ chức", 160), timeLabel: text("thời gian buổi lễ", 80), rsvpDeadline: isoDate("hạn RSVP"), venue: text("tên địa điểm", 160), address: text("địa chỉ", 240), mapsUrl: z.string().trim().url("Link Google Maps không hợp lệ.").refine(isGoogleMapsHttpsUrl, "Link phải là HTTPS Google Maps."), timeHeading: text("nhãn thời gian", 80), venueHeading: text("nhãn địa điểm", 80), directionsLabel: text("nhãn chỉ đường", 100),
   }),
   gallery: z.object({ eyebrow: text("nhãn gallery", 100), title: text("tiêu đề gallery", 180) }),
+  gift: z.object({ eyebrow: text("nhãn gửi tiền mừng", 100), title: text("tiêu đề gửi tiền mừng", 180), intro: text("giới thiệu gửi tiền mừng", 400), qrImageSrc: giftImage, qrAlt: text("mô tả mã QR", 180), nameLabel: text("nhãn tên người gửi lời chúc", 100), namePlaceholder: text("gợi ý tên người gửi lời chúc", 160), messageLabel: text("nhãn lời chúc", 100), messagePlaceholder: text("gợi ý lời chúc", 220), submitLabel: text("nút gửi lời chúc", 100), submittingLabel: text("trạng thái gửi lời chúc", 100), successMessage: text("thông báo gửi lời chúc thành công", 220) }),
   personal: z.object({ eyebrow: text("nhãn thiệp riêng", 100), message: text("lời mời riêng", 500) }),
   rsvp: z.object({
     eyebrow: text("nhãn RSVP", 100), title: text("tiêu đề RSVP", 180), intro: text("lời nhắc RSVP", 220), greetingPrefix: text("lời chào khách", 80), attendanceQuestion: text("câu hỏi tham dự", 180), attendingLabel: text("lựa chọn tham dự", 120), declinedLabel: text("lựa chọn không tham dự", 160), guestCountLabel: text("nhãn số khách", 120), guestCountSuffix: text("hậu tố số khách", 40), messageLabel: text("nhãn lời nhắn", 100), messagePlaceholder: text("gợi ý lời nhắn", 180), submitLabel: text("nút gửi RSVP", 100), submittingLabel: text("trạng thái đang gửi RSVP", 100), closedMessage: text("thông báo hết hạn RSVP", 180), successMessage: text("thông báo RSVP thành công", 180),

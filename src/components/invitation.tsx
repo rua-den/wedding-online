@@ -6,6 +6,7 @@ import type { InvitationContent, LoveStoryMilestoneContent } from "@/types/invit
 import { Countdown } from "./countdown";
 import { FloralMark } from "./floral-mark";
 import { Gallery } from "./gallery";
+import { GiftSection } from "./gift-section";
 import { InvitationFooter } from "./invitation-footer";
 import { MediaFrame } from "./media-frame";
 import { OpenInvitationButton } from "./open-invitation-button";
@@ -30,12 +31,14 @@ export function Invitation({
   content,
   events,
   nextAfterGalleryTargetId = "loi-cam-on",
+  invitationCode,
   showFooter = true,
 }: {
   media?: PublicMediaAsset[];
   content?: InvitationContent;
   events?: InvitationContent["event"][];
   nextAfterGalleryTargetId?: string;
+  invitationCode?: string;
   showFooter?: boolean;
 }) {
   const copy = content ?? defaultInvitationContent();
@@ -100,7 +103,8 @@ export function Invitation({
       <SectionJumpButton targetId="album-anh" label="album ảnh cưới" />
     </section>
 
-    <section className="gallery-section section-shell" id="album-anh" aria-labelledby="gallery-title"><div className="section-heading"><p className="eyebrow"><span style={styleFor("gallery.eyebrow")}>{copy.gallery.eyebrow}</span></p><h2 id="gallery-title"><span style={styleFor("gallery.title")}>{copy.gallery.title}</span></h2></div><Gallery assets={gallery} /><SectionJumpButton targetId={nextAfterGalleryTargetId} label={showFooter ? "lời cảm ơn" : "xác nhận tham dự"} /></section>
+    <section className="gallery-section section-shell" id="album-anh" aria-labelledby="gallery-title"><div className="section-heading"><p className="eyebrow"><span style={styleFor("gallery.eyebrow")}>{copy.gallery.eyebrow}</span></p><h2 id="gallery-title"><span style={styleFor("gallery.title")}>{copy.gallery.title}</span></h2></div><Gallery assets={gallery} /><SectionJumpButton targetId="gui-tien-mung" label="gửi tiền mừng" /></section>
+    <GiftSection copy={copy.gift} nextTargetId={nextAfterGalleryTargetId} fontScales={copy.fontScales} invitationCode={invitationCode} />
     {showFooter ? <InvitationFooter title={copy.footer.title} message={copy.footer.message} titleScale={textScale(copy.fontScales, "footer.title")} messageScale={textScale(copy.fontScales, "footer.message")} /> : null}
   </main>;
 }

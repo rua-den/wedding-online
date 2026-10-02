@@ -13,6 +13,7 @@ const TRACKED_TABLES = [
   "music_settings",
   "invitation_content",
   "invitation_event_profiles",
+  "gift_wishes",
 ];
 
 function fail(message) {

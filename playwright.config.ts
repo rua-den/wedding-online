@@ -31,7 +31,7 @@ export default defineConfig({
     screenshot: { mode: "on", fullPage: true },
   },
   webServer: {
-    command: `npm run build && node e2e/seed.mjs && npm run start -- --hostname 127.0.0.1 --port ${port}`,
+    command: `npm run build && node e2e/seed.mjs && node e2e/start-server.mjs --hostname 127.0.0.1 --port ${port}`,
     url: `http://localhost:${port}`,
     reuseExistingServer: false,
     timeout: 180_000,
@@ -40,8 +40,8 @@ export default defineConfig({
       NODE_ENV: "production",
       SQLITE_PATH: databasePath,
       MEDIA_UPLOAD_DIRECTORY: uploadDirectoryPath,
-      // This is a direct process environment value, not a .env file value, so "$" must stay unescaped.
-      ADMIN_PASSWORD_HASH: "scrypt$" + salt + "$" + digest,
+      // start-server.mjs loads dotenv first, then installs this raw hash into the runtime env.
+      E2E_ADMIN_PASSWORD_HASH: "scrypt$" + salt + "$" + digest,
       ADMIN_SESSION_SECRET: "e2e-only-session-secret-0123456789012345",
       PUBLIC_SITE_URL: `http://localhost:${port}`,
       PORT: String(port),

@@ -1,4 +1,4 @@
-export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 6;
+export const CURRENT_INVITATION_CONTENT_SCHEMA_VERSION = 7;
 
 export class FutureInvitationContentVersionError extends Error {
   constructor(public readonly storedVersion: number) {
@@ -101,12 +101,35 @@ function migrateV5ToV6(input: unknown): unknown {
   };
 }
 
+function migrateV6ToV7(input: unknown): unknown {
+  if (!isRecord(input)) return input;
+  return {
+    ...input,
+    gift: {
+      eyebrow: "Gửi yêu thương",
+      title: "Gửi tiền mừng",
+      intro: "Bạn có thể gửi lời chúc tới chúng mình hoặc quét mã QR để gửi tiền mừng.",
+      qrImageSrc: null,
+      qrAlt: "Mã QR gửi tiền mừng",
+      nameLabel: "Tên của bạn",
+      namePlaceholder: "Nhập tên của bạn",
+      messageLabel: "Lời chúc",
+      messagePlaceholder: "Gửi lời chúc tới cô dâu và chú rể",
+      submitLabel: "Gửi lời chúc",
+      submittingLabel: "Đang gửi...",
+      successMessage: "Cảm ơn bạn đã gửi lời chúc!",
+      ...(isRecord(input.gift) ? input.gift : {}),
+    },
+  };
+}
+
 const migrations: Record<number, (input: unknown) => unknown> = {
   1: migrateV1ToV2,
   2: migrateV2ToV3,
   3: migrateV3ToV4,
   4: migrateV4ToV5,
   5: migrateV5ToV6,
+  6: migrateV6ToV7,
 };
 
 export function migrateInvitationContent(input: unknown, storedVersion: number): { content: unknown; version: number } {

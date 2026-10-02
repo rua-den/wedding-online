@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { DatedInvitationEventScope, InvitationEventProfile, InvitationEventProfiles } from "@/lib/invitation-event-profile-store";
+import { datetimeLocalToVietnamIso, vietnamIsoToDatetimeLocal } from "@/lib/admin-date-time";
 import type { InvitationContent } from "@/types/invitation-content";
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -79,18 +80,22 @@ export function AdminEventEditor({
     }
   }
 
-  const field = (scope: DatedInvitationEventScope, label: string, key: keyof Draft, options?: { type?: string; maxLength?: number }) => (
+  const field = (scope: DatedInvitationEventScope, label: string, key: keyof Draft, options?: { type?: string; maxLength?: number }) => {
+    const value = String(drafts[scope][key] ?? "");
+    const displayValue = options?.type === "datetime-local" ? vietnamIsoToDatetimeLocal(value) : value;
+    return (
     <label>
       {label}
       <input
         type={options?.type ?? "text"}
-        value={String(drafts[scope][key] ?? "")}
+        value={displayValue}
         maxLength={options?.maxLength ?? 240}
-        onChange={(event) => update(scope, { [key]: event.target.value } as Partial<Draft>)}
+        onChange={(event) => update(scope, { [key]: options?.type === "datetime-local" ? datetimeLocalToVietnamIso(event.target.value) : event.target.value } as Partial<Draft>)}
         required
       />
     </label>
-  );
+    );
+  };
 
   return <main className="admin-shell">
     <header className="admin-header">
@@ -98,7 +103,7 @@ export function AdminEventEditor({
         <p className="eyebrow">Ngày cưới</p>
         <h1>Cấu hình sự kiện</h1>
         <p>11/10 và 31/10 được lưu độc lập. Khách chỉ thấy ngày được gán trong danh sách khách mời.</p>
-        <p>Ngày và giờ hiển thị trên thiệp được tự động lấy từ ngày giờ tổ chức để tránh nhập lệch thông tin.</p>
+        <p>Ngày và giờ hiển thị trên thiệp được tự động lấy từ ngày giờ tổ chức để tránh nhập lệch thông tin. Giờ nhập theo múi giờ Việt Nam (GMT+7).</p>
       </div>
     </header>
 
@@ -114,8 +119,8 @@ export function AdminEventEditor({
         <div className="admin-form-grid">
           {field(scope, "Eyebrow", "eyebrow", { maxLength: 100 })}
           {field(scope, "Tiêu đề", "title", { maxLength: 220 })}
-          {field(scope, "Ngày giờ ISO", "dateTime", { maxLength: 80 })}
-          {field(scope, "Hạn RSVP ISO", "rsvpDeadline", { maxLength: 80 })}
+          {field(scope, "Ngày giờ", "dateTime", { type: "datetime-local", maxLength: 16 })}
+          {field(scope, "Hạn RSVP", "rsvpDeadline", { type: "datetime-local", maxLength: 16 })}
           {field(scope, "Tên địa điểm", "venue", { maxLength: 160 })}
           {field(scope, "Địa chỉ", "address", { maxLength: 240 })}
           {field(scope, "Google Maps URL", "mapsUrl", { type: "url", maxLength: 2048 })}

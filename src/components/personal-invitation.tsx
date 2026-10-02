@@ -68,7 +68,7 @@ export function PersonalInvitation({
         <OpenInvitationButton label={copy.cover.scrollCue} targetId="thiep-cuoi" fontScale={textScale(copy.fontScales, "cover.scrollCue")} />
       </div>
     </section>
-    <Invitation media={media} content={personalizedCopy} events={resolved.events} nextAfterGalleryTargetId="xac-nhan-tham-du" showFooter={false} />
+    <Invitation media={media} content={personalizedCopy} events={resolved.events} nextAfterGalleryTargetId="xac-nhan-tham-du" invitationCode={code} showFooter={false} />
     <section id="xac-nhan-tham-du" className="rsvp-section section-shell" aria-labelledby="rsvp-title">
       <div className="section-heading">
         <p className="eyebrow"><span style={styleFor("rsvp.eyebrow")}>{copy.rsvp.eyebrow}</span></p>

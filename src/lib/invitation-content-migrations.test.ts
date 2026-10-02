@@ -3,6 +3,12 @@ import { describe, expect, it } from "vitest";
 import { CURRENT_INVITATION_CONTENT_SCHEMA_VERSION, migrateInvitationContent } from "./invitation-content-migrations";
 
 describe("invitation content typography migration", () => {
+  it("adds the gift section with an empty QR source when migrating v6 content", () => {
+    const migrated = migrateInvitationContent({ story: { milestones: [{ date: "2026", title: "Gặp nhau", description: "Ngày đầu tiên" }] } }, 6);
+    expect(migrated.version).toBe(CURRENT_INVITATION_CONTENT_SCHEMA_VERSION);
+    expect(migrated.content).toMatchObject({ gift: { qrImageSrc: null, title: "Gửi tiền mừng" } });
+  });
+
   it("adds neutral font scales when migrating v5 content", () => {
     const migrated = migrateInvitationContent({
       story: { milestones: [{ date: "2026", title: "Gặp nhau", description: "Ngày đầu tiên" }] },

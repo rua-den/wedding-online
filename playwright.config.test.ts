@@ -21,4 +21,11 @@ describe("Playwright visual evidence configuration", () => {
       ["html", { outputFolder: "playwright-report", open: "never" }],
     ]);
   });
+
+  it("starts the E2E server through the dotenv-safe wrapper", () => {
+    const webServer = Array.isArray(config.webServer) ? config.webServer[0] : config.webServer;
+    expect(webServer?.command).toContain("node e2e/start-server.mjs");
+    expect(webServer?.env).toHaveProperty("E2E_ADMIN_PASSWORD_HASH");
+    expect(webServer?.env).not.toHaveProperty("ADMIN_PASSWORD_HASH");
+  });
 });

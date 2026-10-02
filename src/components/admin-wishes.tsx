@@ -1,0 +1,4 @@
+import type { GiftWish } from "@/lib/gift-wish-store";
+export function AdminWishes({ wishes }: { wishes: GiftWish[] }) {
+  return <section className="admin-panel"><div className="admin-panel-heading"><div><p className="eyebrow">Lời chúc</p><h1>Lời chúc khách gửi</h1></div><span className="admin-badge">{wishes.length} lời chúc</span></div>{wishes.length === 0 ? <p className="admin-status">Chưa có lời chúc nào.</p> : <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Người gửi</th><th>Lời chúc</th><th>Mã thiệp</th><th>Thời gian</th></tr></thead><tbody>{wishes.map((wish) => <tr key={wish.id}><td>{wish.name}</td><td>{wish.message}</td><td><code>{wish.invitationCode ?? "Khách chung"}</code></td><td>{new Date(wish.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</td></tr>)}</tbody></table></div>}</section>;
+}

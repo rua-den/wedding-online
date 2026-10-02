@@ -29,6 +29,14 @@ afterEach(() => {
 });
 
 describe("PersonalInvitation", () => {
+  it.each(["oct11", "oct31", "both", "legacy"] as const)("renders the shared gift section for %s invitations", async (eventScope) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ guestName: "Khách mời", maxGuests: 2, eventScope }), { status: 200 })));
+    const scopeProfiles = eventScope === "legacy" ? { oct11: null, oct31: null } : profiles;
+    render(<PersonalInvitation code="invite-code" eventProfiles={scopeProfiles} />);
+    expect(await screen.findByRole("heading", { name: "Gửi tiền mừng" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gửi tiền mừng" }).closest("section")).toHaveAttribute("id", "gui-tien-mung");
+  });
+
   it("shows a safe fallback when the invitation endpoint returns a non-JSON server error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Unexpected upstream error", { status: 500 })));
     render(<PersonalInvitation code="invite-code" eventProfiles={profiles} />);
@@ -58,5 +66,6 @@ describe("PersonalInvitation", () => {
     render(<PersonalInvitation code="invite-code" eventProfiles={{ oct11: profiles.oct11, oct31: null }} />);
     expect(await screen.findByText("Thông tin sự kiện 31/10 chưa được cấu hình.")).toBeInTheDocument();
     expect(screen.queryByText(defaultInvitationContent().event.title)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Gửi tiền mừng" })).not.toBeInTheDocument();
   });
 });

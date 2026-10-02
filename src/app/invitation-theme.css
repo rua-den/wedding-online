@@ -28,7 +28,8 @@
 .invitation-theme-scope .gallery-section,
 .invitation-theme-scope .rsvp-section { background: var(--invitation-paper); }
 .invitation-theme-scope .couple-section,
-.invitation-theme-scope .personal-cover { background: var(--invitation-alternate); }
+.invitation-theme-scope .personal-cover,
+.invitation-theme-scope .gift-section { background: var(--invitation-alternate); }
 .invitation-theme-scope .event-section { background: var(--invitation-event-surface); }
 
 /* Public section text must follow the selected palette directly. Relying only on
@@ -42,12 +43,15 @@
 .invitation-theme-scope .personal-cover {
   color: var(--invitation-ink);
 }
+.invitation-theme-scope .gift-section { color: var(--invitation-ink); }
 .invitation-theme-scope .section-copy,
 .invitation-theme-scope .person-card > p:not(.person-role),
 .invitation-theme-scope .timeline-copy > p:not(.timeline-date),
 .invitation-theme-scope .event-details dd,
 .invitation-theme-scope .rsvp-card > p:not(.eyebrow),
-.invitation-theme-scope .personal-cover-content > p:last-of-type {
+.invitation-theme-scope .personal-cover-content > p:last-of-type,
+.invitation-theme-scope .gift-intro,
+.invitation-theme-scope .gift-wish-form label {
   color: var(--invitation-muted);
 }
 
@@ -64,8 +68,11 @@
 .invitation-theme-scope .site-footer { background: var(--invitation-footer-surface); color: var(--invitation-inverse-text); }
 .invitation-theme-scope .site-footer small { color: var(--invitation-footer-muted); }
 .invitation-theme-scope .rsvp-form select,
-.invitation-theme-scope .rsvp-form textarea { background: var(--invitation-input-surface); border-color: var(--invitation-input-border); color: var(--invitation-ink); }
+.invitation-theme-scope .rsvp-form textarea,
+.invitation-theme-scope .gift-wish-form input,
+.invitation-theme-scope .gift-wish-form textarea { background: var(--invitation-input-surface); border-color: var(--invitation-input-border); color: var(--invitation-ink); }
 .invitation-theme-scope .rsvp-form button { background: var(--invitation-action-surface); color: var(--invitation-action-text); }
+.invitation-theme-scope .gift-wish-form button { background: var(--invitation-action-surface); color: var(--invitation-action-text); }
 .invitation-theme-scope .map-link { color: var(--invitation-ink); }
 .invitation-theme-scope .guest-state { background: var(--invitation-canvas); color: var(--invitation-ink); }
 .invitation-theme-scope .form-status-success { color: var(--invitation-success-text); }

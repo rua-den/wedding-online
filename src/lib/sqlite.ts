@@ -77,6 +77,14 @@ const schema = `
     loop INTEGER NOT NULL DEFAULT 1 CHECK (loop IN (0, 1)),
     updated_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS gift_wishes (
+    id INTEGER PRIMARY KEY,
+    invitation_code TEXT REFERENCES invitations(code) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS gift_wishes_created_idx ON gift_wishes(created_at DESC, id DESC);
 `;
 
 function migrateInvitationEventScopeColumn(connection: SqliteDatabase): void {

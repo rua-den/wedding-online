@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { spawn } from "node:child_process";
 
 const root = process.cwd();
@@ -12,6 +12,11 @@ if (!existsSync(sqlitePackage)) {
 }
 
 const tempRoot = mkdtempSync(join(tmpdir(), "wedding-standalone-"));
+const tempRootBase = resolve(tmpdir());
+const resolvedTempRoot = resolve(tempRoot);
+if (!resolvedTempRoot.startsWith(`${tempRootBase}${sep}`) || !resolvedTempRoot.slice(tempRootBase.length + sep.length).startsWith("wedding-standalone-")) {
+  throw new Error("Standalone smoke temporary directory is outside the expected temp root.");
+}
 const release = join(tempRoot, "release");
 const dataDirectory = join(tempRoot, "data");
 const uploadsDirectory = join(tempRoot, "uploads");
@@ -22,6 +27,18 @@ let child;
 function appendOutput(chunk) {
   output += chunk.toString();
   if (output.length > 20_000) output = output.slice(-20_000);
+}
+
+async function stopChild() {
+  if (!child || child.exitCode !== null) return;
+  await new Promise((resolveClose) => {
+    const timeout = setTimeout(resolveClose, 5_000);
+    child.once("close", () => {
+      clearTimeout(timeout);
+      resolveClose();
+    });
+    child.kill("SIGTERM");
+  });
 }
 
 try {
@@ -79,6 +96,6 @@ try {
 
   console.log("Isolated standalone smoke test passed.");
 } finally {
-  if (child && child.exitCode === null) child.kill("SIGTERM");
-  rmSync(tempRoot, { recursive: true, force: true });
+  await stopChild();
+  rmSync(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

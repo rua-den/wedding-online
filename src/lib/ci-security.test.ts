@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+const workflow = readFileSync(".github/workflows/ci.yml", "utf8").replace(/\r\n/g, "\n");
 
 describe("GitHub Actions supply-chain policy", () => {
   it("pins every external action invocation to an immutable full commit SHA", () => {

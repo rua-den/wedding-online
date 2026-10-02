@@ -62,6 +62,20 @@ export type InvitationContent = {
     eyebrow: string;
     title: string;
   };
+  gift: {
+    eyebrow: string;
+    title: string;
+    intro: string;
+    qrImageSrc: string | null;
+    qrAlt: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    messageLabel: string;
+    messagePlaceholder: string;
+    submitLabel: string;
+    submittingLabel: string;
+    successMessage: string;
+  };
   personal: {
     eyebrow: string;
     message: string;

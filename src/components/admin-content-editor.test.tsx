@@ -35,7 +35,18 @@ describe("AdminContentEditor font size controls", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Lễ cưới" }));
 
     expect(screen.getAllByRole("slider")).toHaveLength(9);
-    expect(screen.getByText("Ngày giờ ISO (dùng countdown)")).toBeInTheDocument();
+    expect(screen.getByText("Ngày giờ (dùng countdown)")).toBeInTheDocument();
     expect(screen.getByText("Google Maps URL")).toBeInTheDocument();
+  });
+
+  it("renders technical event times as local datetime pickers", async () => {
+    render(<AdminContentEditor initialContent={defaultInvitationContent()} fetcher={vi.fn()} />);
+    await userEvent.click(screen.getByRole("tab", { name: "Lễ cưới" }));
+
+    const dateTime = screen.getByLabelText("Ngày giờ (dùng countdown)") as HTMLInputElement;
+    const deadline = screen.getByLabelText("Hạn RSVP") as HTMLInputElement;
+    expect(dateTime.type).toBe("datetime-local");
+    expect(deadline.type).toBe("datetime-local");
+    expect(dateTime.value).toBe("2027-12-19T10:30");
   });
 });

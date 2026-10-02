@@ -4,13 +4,14 @@ import Image from "next/image";
 import { useState } from "react";
 import { formatImageMegabytes, MAX_CLIENT_IMAGE_BYTES, prepareImageForUpload } from "@/lib/client-image-optimize";
 import { DEFAULT_TEXT_SCALE, MAX_TEXT_SCALE, MIN_TEXT_SCALE, TEXT_SCALE_STEP } from "@/lib/invitation-typography";
+import { datetimeLocalToVietnamIso, vietnamIsoToDatetimeLocal } from "@/lib/admin-date-time";
 import type { InvitationContent, LoveStoryMilestoneContent, StoryImagePosition } from "@/types/invitation-content";
 import { MediaCropEditor, type MediaCropValues } from "./media-crop-editor";
 import styles from "./admin-content-editor.module.css";
 
-type Tab = "couple" | "cover" | "countdown" | "story" | "event" | "gallery" | "personal" | "footer";
+type Tab = "couple" | "cover" | "countdown" | "story" | "event" | "gallery" | "gift" | "personal" | "footer";
 const tabs: Array<{ id: Tab; label: string }> = [
-  { id: "couple", label: "Cặp đôi" }, { id: "cover", label: "Cover" }, { id: "countdown", label: "Đếm ngược" }, { id: "story", label: "Chuyện tình" }, { id: "event", label: "Lễ cưới" }, { id: "gallery", label: "Gallery" }, { id: "personal", label: "Thiệp riêng & RSVP" }, { id: "footer", label: "Footer" },
+  { id: "couple", label: "Cặp đôi" }, { id: "cover", label: "Cover" }, { id: "countdown", label: "Đếm ngược" }, { id: "story", label: "Chuyện tình" }, { id: "event", label: "Lễ cưới" }, { id: "gallery", label: "Gallery" }, { id: "gift", label: "Tiền mừng & lời chúc" }, { id: "personal", label: "Thiệp riêng & RSVP" }, { id: "footer", label: "Footer" },
 ];
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type CropState = { index: number; restoreTarget: HTMLButtonElement | null } | null;
@@ -23,6 +24,7 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
   const [form, setForm] = useState(initialContent);
   const [busy, setBusy] = useState(false);
   const [uploadingMilestone, setUploadingMilestone] = useState<number | null>(null);
+  const [uploadingGift, setUploadingGift] = useState(false);
   const [cropState, setCropState] = useState<CropState>(null);
   const [message, setMessage] = useState("");
 
@@ -73,6 +75,18 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
         ? `Đã tự tối ưu ảnh từ ${formatImageMegabytes(prepared.originalBytes)} MB xuống ${formatImageMegabytes(prepared.file.size)} MB và tải cho mốc ${index + 1}. Bấm “Lưu nội dung” để áp dụng.`
         : `Đã tải ảnh cho mốc ${index + 1}. Bấm “Lưu nội dung” để áp dụng.`);
     } catch { setMessage("Không thể kết nối để tải ảnh mốc."); } finally { setUploadingMilestone(null); }
+  }
+
+  async function uploadGiftQr(file: File) {
+    setUploadingGift(true); setMessage("");
+    try {
+      const data = new FormData(); data.set("file", file);
+      const response = await request("/api/admin/content/image", { method: "POST", body: data });
+      const body = await response.json().catch(() => null) as { src?: string; message?: string } | null;
+      if (!response.ok || !body?.src) { setMessage(body?.message ?? "Không thể tải mã QR lên."); return; }
+      setForm((current) => ({ ...current, gift: { ...current.gift, qrImageSrc: body.src! } }));
+      setMessage("Đã tải mã QR. Bấm “Lưu nội dung” để áp dụng.");
+    } catch { setMessage("Không thể kết nối để tải mã QR."); } finally { setUploadingGift(false); }
   }
 
   function saveMilestoneCrop(values: MediaCropValues) {
@@ -145,13 +159,22 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
       </div> : null}
 
       {active === "event" ? <div className={styles.grid}>
+        <p className={styles.wide}>Ngày giờ nhập theo múi giờ Việt Nam (GMT+7).</p>
         {field("Eyebrow", form.event.eyebrow, (value) => setForm((c) => ({ ...c, event: { ...c.event, eyebrow: value } })), { scale: rootScale("event.eyebrow") })}{field("Tiêu đề", form.event.title, (value) => setForm((c) => ({ ...c, event: { ...c.event, title: value } })), { scale: rootScale("event.title") })}
-        {field("Ngày giờ ISO (dùng countdown)", form.event.dateTime, (value) => setForm((c) => ({ ...c, event: { ...c.event, dateTime: value } })))}{field("Hạn RSVP ISO", form.event.rsvpDeadline, (value) => setForm((c) => ({ ...c, event: { ...c.event, rsvpDeadline: value } })))}
+        {field("Ngày giờ (dùng countdown)", vietnamIsoToDatetimeLocal(form.event.dateTime), (value) => setForm((c) => ({ ...c, event: { ...c.event, dateTime: datetimeLocalToVietnamIso(value) } })), { type: "datetime-local", maxLength: 16 })}{field("Hạn RSVP", vietnamIsoToDatetimeLocal(form.event.rsvpDeadline), (value) => setForm((c) => ({ ...c, event: { ...c.event, rsvpDeadline: datetimeLocalToVietnamIso(value) } })), { type: "datetime-local", maxLength: 16 })}
         {field("Nhãn ngày hiển thị", form.event.dateLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, dateLabel: value } })), { scale: rootScale("event.dateLabel") })}{field("Giờ hiển thị", form.event.timeLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeLabel: value } })), { scale: rootScale("event.timeLabel") })}
         {field("Nhãn 'Thời gian'", form.event.timeHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeHeading: value } })), { scale: rootScale("event.timeHeading") })}{field("Nhãn 'Địa điểm'", form.event.venueHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, venueHeading: value } })), { scale: rootScale("event.venueHeading") })}{field("Nhãn chỉ đường", form.event.directionsLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, directionsLabel: value } })), { scale: rootScale("event.directionsLabel") })}
         {field("Tên địa điểm", form.event.venue, (value) => setForm((c) => ({ ...c, event: { ...c.event, venue: value } })), { scale: rootScale("event.venue") })}{field("Địa chỉ", form.event.address, (value) => setForm((c) => ({ ...c, event: { ...c.event, address: value } })), { scale: rootScale("event.address") })}<div className={styles.wide}>{field("Google Maps URL", form.event.mapsUrl, (value) => setForm((c) => ({ ...c, event: { ...c.event, mapsUrl: value } })), { type: "url", maxLength: 2048 })}</div>
       </div> : null}
       {active === "gallery" ? <div className={styles.grid}>{field("Eyebrow", form.gallery.eyebrow, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, eyebrow: value } })), { scale: rootScale("gallery.eyebrow") })}{field("Tiêu đề", form.gallery.title, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, title: value } })), { scale: rootScale("gallery.title") })}</div> : null}
+      {active === "gift" ? <div className={styles.grid}>
+        {field("Eyebrow", form.gift.eyebrow, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, eyebrow: value } })), { scale: rootScale("gift.eyebrow") })}
+        {field("Tiêu đề", form.gift.title, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, title: value } })), { scale: rootScale("gift.title") })}
+        <div className={styles.wide}>{field("Giới thiệu", form.gift.intro, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, intro: value } })), { multiline: true, scale: rootScale("gift.intro") })}</div>
+        {field("Mô tả mã QR", form.gift.qrAlt, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, qrAlt: value } })))}
+        <div className={styles.wide}><div className={styles.storyImageEditor}><div className={styles.storyImagePreview}>{form.gift.qrImageSrc ? <Image src={form.gift.qrImageSrc} alt={form.gift.qrAlt} width={512} height={512} unoptimized style={{ objectFit: "contain" }} /> : <span>Chưa có mã QR</span>}</div><div className={styles.storyImageActions}><label className={styles.secondary}>{uploadingGift ? "Đang tải…" : form.gift.qrImageSrc ? "Thay mã QR" : "Tải mã QR"}<input hidden type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={busy || uploadingGift || uploadingMilestone !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadGiftQr(file); event.currentTarget.value = ""; }} /></label>{form.gift.qrImageSrc ? <button className={styles.secondary} type="button" disabled={busy || uploadingGift} onClick={() => setForm((current) => ({ ...current, gift: { ...current.gift, qrImageSrc: null } }))}>Gỡ mã QR</button> : null}<small>Ảnh QR được lưu nguyên bản và hiển thị toàn bộ, không cắt khung hay tự tối ưu.</small></div></div></div>
+        {field("Nhãn tên người gửi", form.gift.nameLabel, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, nameLabel: value } })), { scale: rootScale("gift.nameLabel") })}{field("Gợi ý tên người gửi", form.gift.namePlaceholder, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, namePlaceholder: value } })))}{field("Nhãn lời chúc", form.gift.messageLabel, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, messageLabel: value } })), { scale: rootScale("gift.messageLabel") })}{field("Gợi ý lời chúc", form.gift.messagePlaceholder, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, messagePlaceholder: value } })))}{field("Nút gửi lời chúc", form.gift.submitLabel, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, submitLabel: value } })), { scale: rootScale("gift.submitLabel") })}{field("Nhãn đang gửi", form.gift.submittingLabel, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, submittingLabel: value } })), { scale: rootScale("gift.submittingLabel") })}{field("Thông báo thành công", form.gift.successMessage, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, successMessage: value } })), { scale: rootScale("gift.successMessage") })}
+      </div> : null}
       {active === "personal" ? <div className={styles.grid}>
         {field("Eyebrow thiệp riêng", form.personal.eyebrow, (value) => setForm((c) => ({ ...c, personal: { ...c.personal, eyebrow: value } })), { scale: rootScale("personal.eyebrow") })}{field("Eyebrow RSVP", form.rsvp.eyebrow, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, eyebrow: value } })), { scale: rootScale("rsvp.eyebrow") })}<div className={styles.wide}>{field("Lời mời riêng", form.personal.message, (value) => setForm((c) => ({ ...c, personal: { ...c.personal, message: value } })), { multiline: true, scale: rootScale("personal.message") })}</div>
         {field("Tiêu đề RSVP", form.rsvp.title, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, title: value } })), { scale: rootScale("rsvp.title") })}{field("Lời nhắc trước hạn", form.rsvp.intro, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, intro: value } })), { scale: rootScale("rsvp.intro") })}{field("Lời chào trước tên khách", form.rsvp.greetingPrefix, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, greetingPrefix: value } })), { scale: rootScale("rsvp.greetingPrefix") })}
@@ -161,7 +184,7 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
         {field("Thông báo hết hạn", form.rsvp.closedMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, closedMessage: value } })), { scale: rootScale("rsvp.closedMessage") })}{field("Thông báo thành công mặc định", form.rsvp.successMessage, (value) => setForm((c) => ({ ...c, rsvp: { ...c.rsvp, successMessage: value } })), { scale: rootScale("rsvp.successMessage") })}
       </div> : null}
       {active === "footer" ? <div className={styles.grid}>{field("Tên footer", form.footer.title, (value) => setForm((c) => ({ ...c, footer: { ...c.footer, title: value } })), { scale: rootScale("footer.title") })}{field("Lời footer", form.footer.message, (value) => setForm((c) => ({ ...c, footer: { ...c.footer, message: value } })), { scale: rootScale("footer.message") })}</div> : null}
-      <div className={styles.actions}><button type="submit" disabled={busy || uploadingMilestone !== null}>{busy ? "Đang lưu…" : "Lưu nội dung"}</button><span aria-live="polite">{message}</span></div>
+      <div className={styles.actions}><button type="submit" disabled={busy || uploadingMilestone !== null || uploadingGift}>{busy ? "Đang lưu…" : "Lưu nội dung"}</button><span aria-live="polite">{message}</span></div>
     </form>
 
     {cropState && cropMilestone?.imageSrc ? <MediaCropEditor
