@@ -5,6 +5,7 @@ import { AdminContentEditor } from "@/components/admin-content-editor";
 import { AdminTabs } from "@/components/admin-tabs";
 import { adminSessionCookie, verifyAdminSession } from "@/lib/admin-auth";
 import { getInvitationContent } from "@/lib/invitation-content-store";
+import { listAdminMedia } from "@/lib/media-store";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,6 @@ export default async function AdminEditPage() {
 
   return <>
     <AdminTabs active="edit" />
-    <AdminContentEditor initialContent={getInvitationContent()} />
+    <AdminContentEditor initialContent={getInvitationContent()} initialMedia={listAdminMedia()} />
   </>;
 }

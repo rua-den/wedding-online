@@ -47,7 +47,7 @@ async function responseBody(response: Response) {
   return await response.json().catch(() => null) as MediaResponse | null;
 }
 
-export function AdminMediaPanel({ initialAssets, request = fetch }: { initialAssets: MediaAsset[]; request?: MediaRequest }) {
+export function AdminMediaPanel({ initialAssets, request = fetch, galleryOnly = false }: { initialAssets: MediaAsset[]; request?: MediaRequest; galleryOnly?: boolean }) {
   const [assets, setAssets] = useState(initialAssets);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -231,14 +231,14 @@ export function AdminMediaPanel({ initialAssets, request = fetch }: { initialAss
     <>
       <section className="admin-panel admin-media-panel" aria-labelledby="media-title">
         <div className="admin-panel-heading">
-          <div><p className="eyebrow">Hình ảnh</p><h2 id="media-title">Ảnh trên thiệp</h2></div>
+          <div><p className="eyebrow">{galleryOnly ? "Gallery" : "Hình ảnh"}</p><h2 id="media-title">{galleryOnly ? "Ảnh gallery" : "Ảnh trên thiệp"}</h2></div>
           <div className="admin-actions admin-media-heading-actions">
             <button className="admin-secondary-button" type="button" onClick={() => setPreviewOpen(true)}>Xem trước toàn bộ thiệp</button>
             <span className="admin-media-count">{gallery.length} ảnh gallery</span>
           </div>
         </div>
 
-        <div className="admin-media-slots">
+        {galleryOnly ? null : <div className="admin-media-slots">
           {singletonSlots.map(({ slot, label }) => {
             const asset = assetFor(slot);
             const inactiveAssets = inactiveAssetsFor(slot);
@@ -281,7 +281,7 @@ export function AdminMediaPanel({ initialAssets, request = fetch }: { initialAss
               </article>
             );
           })}
-        </div>
+        </div>}
 
         <div className="admin-media-gallery-head"><h3>Gallery</h3><label className="admin-primary-button">+ Thêm ảnh<input hidden multiple type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={busy} onChange={(event) => { const files = Array.from(event.target.files ?? []); event.currentTarget.value = ""; void (async () => { for (const file of files) await upload("gallery", file); })(); }} /></label></div>
         <div className="admin-media-gallery">
