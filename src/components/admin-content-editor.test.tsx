@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
+import type { MediaAsset } from "@/lib/media-store";
 import { AdminContentEditor } from "./admin-content-editor";
 
 afterEach(() => cleanup());
@@ -37,6 +38,30 @@ describe("AdminContentEditor font size controls", () => {
     expect(screen.getAllByRole("slider")).toHaveLength(9);
     expect(screen.getByText("Ngày giờ (dùng countdown)")).toBeInTheDocument();
     expect(screen.getByText("Google Maps URL")).toBeInTheDocument();
+  });
+
+  it("keeps gallery image management in the Gallery tab", async () => {
+    const galleryAsset: MediaAsset = {
+      id: 99,
+      slot: "gallery",
+      src: "/uploads/gallery-admin.jpg",
+      alt: "Ảnh cưới gallery",
+      sortOrder: 0,
+      active: true,
+      focusX: 50,
+      focusY: 50,
+      zoom: 1,
+      createdAt: "",
+      updatedAt: "",
+    };
+    render(<AdminContentEditor initialContent={defaultInvitationContent()} initialMedia={[galleryAsset]} fetcher={vi.fn()} />);
+    await userEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+
+    expect(screen.getByRole("heading", { name: "Ảnh gallery" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Ảnh cưới gallery" })).toBeInTheDocument();
+    expect(screen.getByText("+ Thêm ảnh")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Căn khung" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Xóa" })).toBeInTheDocument();
   });
 
   it("renders technical event times as local datetime pickers", async () => {
