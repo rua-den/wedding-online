@@ -17,10 +17,8 @@ concurrency:
 jobs:
   trigger-deploy:
     name: Trigger production deployment
-    # One-shot deploy is allowed only for the exact commit message below; restore the normal gate after completion.
     if: >-
-      (vars.CD_ENABLED == 'true' ||
-       github.event.workflow_run.head_commit.message == 'ci: deploy latest main once') &&
+      vars.CD_ENABLED == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
