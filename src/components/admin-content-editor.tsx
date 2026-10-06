@@ -5,7 +5,9 @@ import { useState } from "react";
 import { formatImageMegabytes, MAX_CLIENT_IMAGE_BYTES, prepareImageForUpload } from "@/lib/client-image-optimize";
 import { DEFAULT_TEXT_SCALE, MAX_TEXT_SCALE, MIN_TEXT_SCALE, TEXT_SCALE_STEP } from "@/lib/invitation-typography";
 import { datetimeLocalToVietnamIso, vietnamIsoToDatetimeLocal } from "@/lib/admin-date-time";
+import type { MediaAsset } from "@/lib/media-store";
 import type { InvitationContent, LoveStoryMilestoneContent, StoryImagePosition } from "@/types/invitation-content";
+import { AdminMediaPanel } from "./admin-media-panel";
 import { MediaCropEditor, type MediaCropValues } from "./media-crop-editor";
 import styles from "./admin-content-editor.module.css";
 
@@ -18,7 +20,7 @@ type CropState = { index: number; restoreTarget: HTMLButtonElement | null } | nu
 type ScaleControl = { value: number; onChange: (value: number) => void };
 const defaultCrop = { imageFocusX: 50, imageFocusY: 50, imageZoom: 1 } as const;
 
-export function AdminContentEditor({ initialContent, fetcher }: { initialContent: InvitationContent; fetcher?: Fetcher }) {
+export function AdminContentEditor({ initialContent, initialMedia = [], fetcher }: { initialContent: InvitationContent; initialMedia?: MediaAsset[]; fetcher?: Fetcher }) {
   const request = fetcher ?? fetch;
   const [active, setActive] = useState<Tab>("couple");
   const [form, setForm] = useState(initialContent);
@@ -166,7 +168,7 @@ export function AdminContentEditor({ initialContent, fetcher }: { initialContent
         {field("Nhãn 'Thời gian'", form.event.timeHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, timeHeading: value } })), { scale: rootScale("event.timeHeading") })}{field("Nhãn 'Địa điểm'", form.event.venueHeading, (value) => setForm((c) => ({ ...c, event: { ...c.event, venueHeading: value } })), { scale: rootScale("event.venueHeading") })}{field("Nhãn chỉ đường", form.event.directionsLabel, (value) => setForm((c) => ({ ...c, event: { ...c.event, directionsLabel: value } })), { scale: rootScale("event.directionsLabel") })}
         {field("Tên địa điểm", form.event.venue, (value) => setForm((c) => ({ ...c, event: { ...c.event, venue: value } })), { scale: rootScale("event.venue") })}{field("Địa chỉ", form.event.address, (value) => setForm((c) => ({ ...c, event: { ...c.event, address: value } })), { scale: rootScale("event.address") })}<div className={styles.wide}>{field("Google Maps URL", form.event.mapsUrl, (value) => setForm((c) => ({ ...c, event: { ...c.event, mapsUrl: value } })), { type: "url", maxLength: 2048 })}</div>
       </div> : null}
-      {active === "gallery" ? <div className={styles.grid}>{field("Eyebrow", form.gallery.eyebrow, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, eyebrow: value } })), { scale: rootScale("gallery.eyebrow") })}{field("Tiêu đề", form.gallery.title, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, title: value } })), { scale: rootScale("gallery.title") })}</div> : null}
+      {active === "gallery" ? <div><div className={styles.grid}>{field("Eyebrow", form.gallery.eyebrow, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, eyebrow: value } })), { scale: rootScale("gallery.eyebrow") })}{field("Tiêu đề", form.gallery.title, (value) => setForm((c) => ({ ...c, gallery: { ...c.gallery, title: value } })), { scale: rootScale("gallery.title") })}</div><AdminMediaPanel initialAssets={initialMedia} request={request} galleryOnly /></div> : null}
       {active === "gift" ? <div className={styles.grid}>
         {field("Eyebrow", form.gift.eyebrow, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, eyebrow: value } })), { scale: rootScale("gift.eyebrow") })}
         {field("Tiêu đề", form.gift.title, (value) => setForm((c) => ({ ...c, gift: { ...c.gift, title: value } })), { scale: rootScale("gift.title") })}
