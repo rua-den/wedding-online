@@ -7,6 +7,7 @@ import { resolveAppearanceSettings } from "@/lib/appearance-store";
 import { getInvitationContent } from "@/lib/invitation-content-store";
 import { getInvitationEventProfiles } from "@/lib/invitation-event-profile-store";
 import { getInvitation } from "@/lib/invitation-service";
+import { invitationSocialCopy } from "@/lib/invitation-social-card";
 import { listActiveMedia, toPublicMediaAsset } from "@/lib/media-store";
 import { getMusicSettings } from "@/lib/music-store";
 import { sqliteInvitationStore } from "@/lib/sqlite-store";
@@ -19,25 +20,42 @@ const personalizedRobots: Metadata["robots"] = {
   noarchive: true,
 };
 
+function socialMetadata(title: string, description: string, couple: string): Metadata {
+  return {
+    title,
+    description,
+    robots: personalizedRobots,
+    openGraph: {
+      type: "website",
+      locale: "vi_VN",
+      siteName: couple,
+      title,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
   const { code } = await params;
   const content = getInvitationContent();
-  const couple = `${content.couple.shortGroomName} & ${content.couple.shortBrideName}`;
+
   try {
     const result = await getInvitation(code, sqliteInvitationStore);
-    if (result.ok) return {
-      title: `Thiệp mời dành cho ${result.invitation.guestName} | ${couple}`,
-      description: `${couple} trân trọng kính mời ${result.invitation.guestName} đến chung vui trong ngày đặc biệt.`,
-      robots: personalizedRobots,
-    };
+    if (result.ok) {
+      const copy = invitationSocialCopy(content, result.invitation.guestName);
+      return socialMetadata(copy.title, copy.description, copy.couple);
+    }
   } catch {
     // Fall through to generic metadata.
   }
-  return {
-    title: `${couple} | Thiệp mời lễ thành hôn`,
-    description: `Trân trọng kính mời bạn đến chung vui cùng ${couple}.`,
-    robots: personalizedRobots,
-  };
+
+  const copy = invitationSocialCopy(content);
+  return socialMetadata(copy.title, copy.description, copy.couple);
 }
 
 type SearchParams = Promise<{ previewTheme?: string | string[]; previewFont?: string | string[] }>;
