@@ -30,9 +30,34 @@ const sourceSerif4 = Source_Serif_4({ subsets: ["latin", "vietnamese"], variable
 const alegreya = Alegreya({ subsets: ["latin", "vietnamese"], variable: "--font-alegreya", display: "swap" });
 const crimsonPro = Crimson_Pro({ subsets: ["latin", "vietnamese"], variable: "--font-crimson-pro", display: "swap" });
 
+const defaultTitle = "Huy & Nhi | Thiệp mời lễ thành hôn";
+const defaultDescription = "Trân trọng kính mời bạn đến chung vui cùng Huy và Nhi.";
+
+function metadataBase() {
+  const configured = process.env.PUBLIC_SITE_URL?.trim();
+  try {
+    return new URL(configured || "https://congchuavahoangtu.nhkhuy.run.place");
+  } catch {
+    return new URL("https://congchuavahoangtu.nhkhuy.run.place");
+  }
+}
+
 export const metadata: Metadata = {
-  title: "Huy & Nhi | Thiệp mời lễ thành hôn",
-  description: "Trân trọng kính mời bạn đến chung vui cùng Huy và Nhi.",
+  metadataBase: metadataBase(),
+  title: defaultTitle,
+  description: defaultDescription,
+  openGraph: {
+    type: "website",
+    locale: "vi_VN",
+    siteName: "Huy & Nhi",
+    title: defaultTitle,
+    description: defaultDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: defaultTitle,
+    description: defaultDescription,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
