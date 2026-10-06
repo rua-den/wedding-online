@@ -7,7 +7,8 @@ import { updateAppearanceSettings } from "@/lib/appearance-store";
 import { updateMusicSettings } from "@/lib/music-store";
 import { updateSiteSettings } from "@/lib/site-settings";
 import { closeDatabaseForTests } from "@/lib/sqlite";
-import PersonalInvitationPage from "./page";
+import { createAdminInvitation } from "@/lib/sqlite-store";
+import PersonalInvitationPage, { generateMetadata } from "./page";
 
 let directory: string;
 
@@ -51,5 +52,25 @@ describe("personal invitation page settings", () => {
     const persistedPage = await PersonalInvitationPage({ params: Promise.resolve({ code: "demo" }) });
     expect(persistedPage.props.themeId).toBe("sage-garden");
     expect(persistedPage.props.fontId).toBe("lora");
+  });
+
+  it("publishes personalized Open Graph copy while keeping guest pages private from search", async () => {
+    createAdminInvitation({ code: "social-preview", name: "Anh Minh & Chị Lan", maxGuests: 2 });
+
+    const metadata = await generateMetadata({ params: Promise.resolve({ code: "social-preview" }) });
+
+    expect(metadata.title).toBe("Thiệp cưới gửi Anh Minh & Chị Lan | Huy & Nhi");
+    expect(metadata.description).toContain("Huy & Nhi trân trọng kính mời Anh Minh & Chị Lan");
+    expect(metadata.openGraph).toMatchObject({
+      type: "website",
+      locale: "vi_VN",
+      siteName: "Huy & Nhi",
+      title: "Thiệp cưới gửi Anh Minh & Chị Lan | Huy & Nhi",
+    });
+    expect(metadata.twitter).toMatchObject({
+      card: "summary_large_image",
+      title: "Thiệp cưới gửi Anh Minh & Chị Lan | Huy & Nhi",
+    });
+    expect(metadata.robots).toMatchObject({ index: false, follow: false, noarchive: true });
   });
 });
