@@ -17,8 +17,8 @@ concurrency:
 jobs:
   trigger-deploy:
     name: Trigger production deployment
+    # One-shot manual deployment requested in chat; this gate is restored after the deploy completes.
     if: >-
-      # One-shot manual deployment requested in chat; this gate is restored after the deploy completes.
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
