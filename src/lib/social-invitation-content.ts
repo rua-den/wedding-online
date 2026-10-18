@@ -17,16 +17,20 @@ export function socialInvitationContent(
     return { ...content, event: { ...content.event, dateLabel: "", venue: "" } };
   }
 
+  const label = (dateTime: string) => new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
+  }).format(new Date(dateTime));
+
   if (scope === "both") {
     return {
       ...content,
       event: {
         ...resolved.primary,
-        dateLabel: resolved.events.map((event) => event.dateLabel).join(" & "),
+        dateLabel: resolved.events.map((event) => label(event.dateTime)).join(" & "),
         venue: "",
       },
     };
   }
 
-  return { ...content, event: resolved.primary };
+  return { ...content, event: { ...resolved.primary, dateLabel: label(resolved.primary.dateTime) } };
 }
