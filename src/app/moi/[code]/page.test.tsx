@@ -8,6 +8,9 @@ import { updateMusicSettings } from "@/lib/music-store";
 import { updateSiteSettings } from "@/lib/site-settings";
 import { closeDatabaseForTests } from "@/lib/sqlite";
 import { createAdminInvitation } from "@/lib/sqlite-store";
+import { updateInvitationEventProfile } from "@/lib/invitation-event-profile-store";
+import { resolveSocialInvitationContent } from "@/lib/social-invitation-event";
+import { getInvitationContent } from "@/lib/invitation-content-store";
 import PersonalInvitationPage, { generateMetadata } from "./page";
 
 let directory: string;
@@ -52,6 +55,38 @@ describe("personal invitation page settings", () => {
     const persistedPage = await PersonalInvitationPage({ params: Promise.resolve({ code: "demo" }) });
     expect(persistedPage.props.themeId).toBe("sage-garden");
     expect(persistedPage.props.fontId).toBe("lora");
+  });
+
+  it("uses each guest's selected event instead of the shared date label", async () => {
+    updateSiteSettings({ dateLabel: "Chủ Nhật, ngày 31/10/2026", venue: "Global Venue" });
+    const template = getInvitationContent().event;
+    for (const [scope, dateTime] of [
+      ["oct11", "2026-10-11T10:00:00+07:00"],
+      ["oct31", "2026-10-31T10:00:00+07:00"],
+    ] as const) {
+      updateInvitationEventProfile(scope, {
+        ...template, scope, dateTime,
+        rsvpDeadline: "2026-10-01T00:00:00+07:00",
+        venue: scope === "oct11" ? "Venue 11" : "Venue 31",
+      });
+    }
+    createAdminInvitation({ code: "first-day", name: "Khách 11", maxGuests: 1, eventScope: "oct11" });
+    createAdminInvitation({ code: "second-day", name: "Khách 31", maxGuests: 1, eventScope: "oct31" });
+    createAdminInvitation({ code: "both-days", name: "Khách cả hai", maxGuests: 1, eventScope: "both" });
+    for (const [code, expected, absent] of [
+      ["first-day", "Chủ Nhật, 11/10/2026", "31/10/2026"],
+      ["second-day", "Thứ Bảy, 31/10/2026", "11/10/2026"],
+      ["both-days", "11/10/2026", "Global Venue"],
+    ]) {
+      const metadata = await generateMetadata({ params: Promise.resolve({ code }) });
+      expect(String(metadata.description)).toContain(expected);
+      expect(String(metadata.description)).not.toContain(absent);
+    }
+    const content = resolveSocialInvitationContent(getInvitationContent(), "both", {
+      oct11: null, oct31: null,
+    });
+    expect(content.event.dateLabel).toBe("");
+    expect(content.event.venue).toBe("");
   });
 
   it("publishes personalized Open Graph copy while keeping guest pages private from search", async () => {

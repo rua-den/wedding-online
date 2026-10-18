@@ -5,6 +5,8 @@ import {
   invitationSocialImageSize,
 } from "@/lib/invitation-social-card";
 import { getInvitationContent } from "@/lib/invitation-content-store";
+import { getInvitationEventProfiles } from "@/lib/invitation-event-profile-store";
+import { resolveSocialInvitationContent } from "@/lib/social-invitation-event";
 import { getInvitation } from "@/lib/invitation-service";
 import { sqliteInvitationStore } from "@/lib/sqlite-store";
 
@@ -25,7 +27,7 @@ export default async function PersonalInvitationOpenGraphImage({
     const result = await getInvitation(code, sqliteInvitationStore);
     if (result.ok) {
       return new ImageResponse(
-        <InvitationSocialCard content={content} guestName={result.invitation.guestName} />,
+        <InvitationSocialCard content={resolveSocialInvitationContent(content, result.invitation.eventScope, getInvitationEventProfiles())} guestName={result.invitation.guestName} />,
         invitationSocialImageSize,
       );
     }

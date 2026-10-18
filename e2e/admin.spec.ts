@@ -95,15 +95,26 @@ test("both-date invitation renders and records one RSVP per configured event", a
   await expect(page.getByText("11/10/2026", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("31/10/2026", { exact: true }).first()).toBeVisible();
 
+  const deadlines = {
+    oct11: new Date("2026-10-10T23:00:00+07:00"),
+    oct31: new Date("2026-10-30T23:00:00+07:00"),
+  };
+  const submitted: string[] = [];
   for (const scope of ["oct11", "oct31"] as const) {
     const form = page.locator(`form[data-event-scope="${scope}"]`);
+    if (Date.now() > deadlines[scope].getTime()) {
+      await expect(form.getByLabel("Số người tham dự")).toBeDisabled();
+      continue;
+    }
     await form.getByLabel("Sẽ tham dự").check();
     await form.getByLabel("Số người tham dự").selectOption("1");
     await form.getByRole("button", { name: "Gửi xác nhận" }).click();
     await expect(form.getByText("Cảm ơn bạn đã xác nhận tham dự!")).toBeVisible();
+    submitted.push(scope === "oct11" ? "11/10" : "31/10");
   }
 
   await page.goto("/admin");
-  await expect(page.getByText("Khách E2E hai ngày · 11/10")).toBeVisible();
-  await expect(page.getByText("Khách E2E hai ngày · 31/10")).toBeVisible();
+  for (const dateLabel of submitted) {
+    await expect(page.getByText(`Khách E2E hai ngày · ${dateLabel}`)).toBeVisible();
+  }
 });
