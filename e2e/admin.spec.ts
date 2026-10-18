@@ -36,7 +36,7 @@ test("admin can deactivate an invitation and filter/export RSVP rows", async ({ 
   await expect((await download).suggestedFilename()).toBe("rsvp.csv");
 });
 
-test("both-date invitation renders and records one RSVP per configured event", async ({ page }) => {
+test("both-date invitation shows both events and respects closed RSVP deadlines", async ({ page }) => {
   await login(page);
   await page.goto("/admin/events");
 
@@ -95,15 +95,16 @@ test("both-date invitation renders and records one RSVP per configured event", a
   await expect(page.getByText("11/10/2026", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("31/10/2026", { exact: true }).first()).toBeVisible();
 
-  for (const scope of ["oct11", "oct31"] as const) {
-    const form = page.locator(`form[data-event-scope="${scope}"]`);
-    await form.getByLabel("Sẽ tham dự").check();
-    await form.getByLabel("Số người tham dự").selectOption("1");
-    await form.getByRole("button", { name: "Gửi xác nhận" }).click();
-    await expect(form.getByText("Cảm ơn bạn đã xác nhận tham dự!")).toBeVisible();
-  }
+  const earlierForm = page.locator('form[data-event-scope="oct11"]');
+  await expect(earlierForm.getByLabel("Số người tham dự")).toBeDisabled();
+  await expect(earlierForm.getByRole("button", { name: "Gửi xác nhận" })).toBeDisabled();
+
+  const futureForm = page.locator('form[data-event-scope="oct31"]');
+  await futureForm.getByLabel("Sẽ tham dự").check();
+  await futureForm.getByLabel("Số người tham dự").selectOption("1");
+  await futureForm.getByRole("button", { name: "Gửi xác nhận" }).click();
+  await expect(futureForm.getByText("Cảm ơn bạn đã xác nhận tham dự!")).toBeVisible();
 
   await page.goto("/admin");
-  await expect(page.getByText("Khách E2E hai ngày · 11/10")).toBeVisible();
   await expect(page.getByText("Khách E2E hai ngày · 31/10")).toBeVisible();
 });
