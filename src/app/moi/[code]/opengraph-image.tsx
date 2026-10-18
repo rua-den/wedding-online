@@ -7,6 +7,7 @@ import {
 import { getInvitationContent } from "@/lib/invitation-content-store";
 import { getInvitation } from "@/lib/invitation-service";
 import { sqliteInvitationStore } from "@/lib/sqlite-store";
+import { socialInvitationContent } from "@/lib/social-invitation-content";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function PersonalInvitationOpenGraphImage({
     const result = await getInvitation(code, sqliteInvitationStore);
     if (result.ok) {
       return new ImageResponse(
-        <InvitationSocialCard content={content} guestName={result.invitation.guestName} />,
+        <InvitationSocialCard content={socialInvitationContent(content, result.invitation.eventScope)} guestName={result.invitation.guestName} />,
         invitationSocialImageSize,
       );
     }
