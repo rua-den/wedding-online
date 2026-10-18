@@ -8,6 +8,7 @@ import { getInvitationContent } from "@/lib/invitation-content-store";
 import { getInvitationEventProfiles } from "@/lib/invitation-event-profile-store";
 import { getInvitation } from "@/lib/invitation-service";
 import { invitationSocialCopy } from "@/lib/invitation-social-card";
+import { socialInvitationContent } from "@/lib/social-invitation-content";
 import { listActiveMedia, toPublicMediaAsset } from "@/lib/media-store";
 import { getMusicSettings } from "@/lib/music-store";
 import { sqliteInvitationStore } from "@/lib/sqlite-store";
@@ -47,7 +48,8 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   try {
     const result = await getInvitation(code, sqliteInvitationStore);
     if (result.ok) {
-      const copy = invitationSocialCopy(content, result.invitation.guestName);
+      const scopedContent = socialInvitationContent(content, result.invitation.eventScope);
+      const copy = invitationSocialCopy(scopedContent, result.invitation.guestName);
       return socialMetadata(copy.title, copy.description, copy.couple);
     }
   } catch {
