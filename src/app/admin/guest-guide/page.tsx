@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 export default async function GuestGuideAdminPage() {
   const token = (await cookies()).get(adminSessionCookie.name)?.value;
   if (!verifyAdminSession(token)) redirect("/admin/login");
-  return <><AdminTabs active="edit" /><AdminGuestGuideEditor initial={getGuestGuide()} /></>;
+  return <><AdminTabs active="guest-guide" /><AdminGuestGuideEditor initial={getGuestGuide()} /></>;
 }
