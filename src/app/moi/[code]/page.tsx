@@ -11,6 +11,7 @@ import { invitationSocialCopy } from "@/lib/invitation-social-card";
 import { resolveSocialInvitationContent } from "@/lib/social-invitation-event";
 import { listActiveMedia, toPublicMediaAsset } from "@/lib/media-store";
 import { getMusicSettings } from "@/lib/music-store";
+import { getGuestGuide } from "@/lib/guest-guide-store";
 import { sqliteInvitationStore } from "@/lib/sqlite-store";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +76,7 @@ export default async function PersonalInvitationPage({ params, searchParams }: {
       media={listActiveMedia().map(toPublicMediaAsset)}
       content={getInvitationContent()}
       eventProfiles={getInvitationEventProfiles()}
+      guestGuide={getGuestGuide()}
     />
     <MusicPlayer settings={getMusicSettings()} />
   </InvitationThemeScope>;
