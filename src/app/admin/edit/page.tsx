@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AdminContentEditor } from "@/components/admin-content-editor";
+import Link from "next/link";
 import { AdminTabs } from "@/components/admin-tabs";
 import { adminSessionCookie, verifyAdminSession } from "@/lib/admin-auth";
 import { getInvitationContent } from "@/lib/invitation-content-store";
@@ -15,6 +16,7 @@ export default async function AdminEditPage() {
 
   return <>
     <AdminTabs active="edit" />
+    <p style={{ margin: "16px 24px" }}><Link href="/admin/guest-guide">Chỉnh Agenda &amp; sơ đồ khu tiệc →</Link></p>
     <AdminContentEditor initialContent={getInvitationContent()} initialMedia={listAdminMedia()} />
   </>;
 }
