@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { defaultInvitationContent } from "@/config/invitation-content";
+import type { GuestGuide } from "@/lib/guest-guide-store";
 import type { DatedInvitationEventScope, InvitationEventProfiles } from "@/lib/invitation-event-profile-store";
 import { resolveInvitationEvents } from "@/lib/invitation-event-resolver";
 import type { InvitationEventScope } from "@/lib/invitation-event-scope";
@@ -28,11 +29,13 @@ export function PersonalInvitation({
   media = [],
   content,
   eventProfiles = emptyEventProfiles,
+  guestGuide,
 }: {
   code: string;
   media?: PublicMediaAsset[];
   content?: InvitationContent;
   eventProfiles?: InvitationEventProfiles;
+  guestGuide?: GuestGuide;
 }) {
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [error, setError] = useState("");
@@ -68,7 +71,7 @@ export function PersonalInvitation({
         <OpenInvitationButton label={copy.cover.scrollCue} targetId="thiep-cuoi" fontScale={textScale(copy.fontScales, "cover.scrollCue")} />
       </div>
     </section>
-    <Invitation media={media} content={personalizedCopy} events={resolved.events} nextAfterGalleryTargetId="xac-nhan-tham-du" invitationCode={code} showFooter={false} />
+    <Invitation media={media} content={personalizedCopy} events={resolved.events} nextAfterGalleryTargetId="xac-nhan-tham-du" invitationCode={code} showFooter={false} guestGuide={invitation.eventScope === "oct31" || invitation.eventScope === "both" ? guestGuide : undefined} />
     <section id="xac-nhan-tham-du" className="rsvp-section section-shell" aria-labelledby="rsvp-title">
       <div className="section-heading">
         <p className="eyebrow"><span style={styleFor("rsvp.eyebrow")}>{copy.rsvp.eyebrow}</span></p>

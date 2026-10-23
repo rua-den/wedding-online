@@ -199,3 +199,15 @@
   .invitation-preview-toolbar .admin-secondary-button { margin-left:0; }
 }
 @media (prefers-reduced-motion:reduce) { .invitation-preview-device { transition:none; } }
+
+/* Guest-facing agenda and venue layout */
+.guest-guide-section { padding: 5rem 1.25rem; text-align: center; }
+.guest-guide-section .section-heading p { max-width: 36rem; margin: 1rem auto; }
+.guest-agenda { list-style: none; padding: 0; margin: 2.5rem auto 0; max-width: 720px; text-align: left; }
+.guest-agenda-item { display: grid; grid-template-columns: 6rem 1fr; gap: 1.4rem; padding: 1.3rem 0; border-bottom: 1px solid currentColor; }
+.guest-agenda-item time { font-size: 1.3rem; font-weight: 600; }
+.guest-agenda-item h3 { margin: 0; font-size: 1.25rem; }
+.guest-agenda-item p { margin: .5rem 0 0; line-height: 1.6; }
+.guest-layout-image { display: block; width: 100%; max-width: 1000px; height: auto; margin: 2rem auto .5rem; border-radius: 16px; box-shadow: 0 12px 44px #0002; }
+.guest-layout-hint { font-size: .9rem; opacity: .75; }
+@media (max-width: 520px) { .guest-guide-section { padding: 3rem 1rem; } .guest-agenda-item { grid-template-columns: 4.5rem 1fr; gap: .7rem; } .guest-agenda-item time { font-size: 1.05rem; } }

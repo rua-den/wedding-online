@@ -55,6 +55,14 @@ export function referencedUploadSources(): Set<string> {
     }
   }
 
+  const guideTable = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='guest_guide'").get() as { name?: string } | undefined;
+  if (guideTable) {
+    const guideRow = connection.prepare("SELECT guide_json FROM guest_guide WHERE id=1").get() as { guide_json?: string } | undefined;
+    if (guideRow?.guide_json) {
+      try { collectUploadStrings(JSON.parse(guideRow.guide_json), references); }
+      catch { throw new Error("Không thể prune upload vì guest_guide có JSON không hợp lệ."); }
+    }
+  }
   return references;
 }
 

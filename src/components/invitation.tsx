@@ -6,6 +6,8 @@ import type { InvitationContent, LoveStoryMilestoneContent } from "@/types/invit
 import { Countdown } from "./countdown";
 import { FloralMark } from "./floral-mark";
 import { Gallery } from "./gallery";
+import { GuestGuideSections } from "./guest-guide-sections";
+import type { GuestGuide } from "@/lib/guest-guide-store";
 import { GiftSection } from "./gift-section";
 import { InvitationFooter } from "./invitation-footer";
 import { MediaFrame } from "./media-frame";
@@ -33,6 +35,7 @@ export function Invitation({
   nextAfterGalleryTargetId = "loi-cam-on",
   invitationCode,
   showFooter = true,
+  guestGuide,
 }: {
   media?: PublicMediaAsset[];
   content?: InvitationContent;
@@ -40,6 +43,7 @@ export function Invitation({
   nextAfterGalleryTargetId?: string;
   invitationCode?: string;
   showFooter?: boolean;
+  guestGuide?: GuestGuide;
 }) {
   const copy = content ?? defaultInvitationContent();
   const { couple, cover, event } = copy;
@@ -103,6 +107,7 @@ export function Invitation({
       <SectionJumpButton targetId="album-anh" label="album ảnh cưới" />
     </section>
 
+    {guestGuide ? <GuestGuideSections guide={guestGuide} /> : null}
     <section className="gallery-section section-shell" id="album-anh" aria-labelledby="gallery-title"><div className="section-heading"><p className="eyebrow"><span style={styleFor("gallery.eyebrow")}>{copy.gallery.eyebrow}</span></p><h2 id="gallery-title"><span style={styleFor("gallery.title")}>{copy.gallery.title}</span></h2></div><Gallery assets={gallery} /><SectionJumpButton targetId="gui-tien-mung" label="gửi tiền mừng" /></section>
     <GiftSection copy={copy.gift} nextTargetId={nextAfterGalleryTargetId} fontScales={copy.fontScales} invitationCode={invitationCode} />
     {showFooter ? <InvitationFooter title={copy.footer.title} message={copy.footer.message} titleScale={textScale(copy.fontScales, "footer.title")} messageScale={textScale(copy.fontScales, "footer.message")} /> : null}
